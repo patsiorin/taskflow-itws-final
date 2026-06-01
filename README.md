@@ -20,7 +20,7 @@ apps/backend
   src/shared/prisma               Shared Prisma client
 
 database
-  dump.sql        Database schema and starter data for submission
+  dump.sql        PostgreSQL schema and starter data for submission
 ```
 
 ## Exam Requirements Covered
@@ -31,6 +31,15 @@ database
 - Backend: NestJS
 - Frontend: React, Vite, Tailwind CSS
 - Database dump included in `database/dump.sql`
+
+## Database
+
+The project uses PostgreSQL. The local development database name is `ws`.
+
+```bash
+createdb -U postgres ws
+psql -U postgres -d ws -f database/dump.sql
+```
 
 ## Run Locally
 
@@ -45,4 +54,3 @@ Default URLs:
 
 - Frontend: `http://127.0.0.1:5173`
 - Backend: `http://127.0.0.1:3000/api`
-
