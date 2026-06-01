@@ -1,0 +1,53 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Install dependencies",
+      "type": "shell",
+      "command": "source ~/.nvm/nvm.sh && nvm use 22.15.1 >/dev/null && npm install",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "shell": {
+          "executable": "/bin/zsh",
+          "args": ["-lc"]
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Frontend: run dev server",
+      "type": "shell",
+      "command": "\"${workspaceFolder}/scripts/frontend-dev.sh\"",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "dev"
+      }
+    },
+    {
+      "label": "Backend: run NestJS",
+      "type": "shell",
+      "command": "\"${workspaceFolder}/scripts/backend-dev.sh\"",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "group": "dev"
+      }
+    },
+    {
+      "label": "Dev: run frontend and backend",
+      "dependsOrder": "parallel",
+      "dependsOn": ["Backend: run NestJS", "Frontend: run dev server"],
+      "problemMatcher": []
+    }
+  ]
+}
+
