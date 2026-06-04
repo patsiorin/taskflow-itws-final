@@ -9,7 +9,7 @@ import { ConfirmDialog, Dialog, DialogActions } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from '@/components/ui/sonner';
@@ -344,31 +344,32 @@ export function BoardPage({ boardId, navigate }: BoardPageProps) {
             <div className="grid gap-2">
               <Label htmlFor="task-column">Column</Label>
               <Select
-                id="task-column"
-                value={taskColumnId ?? ''}
-                onChange={(event) => setTaskColumnId(Number(event.target.value))}
-                required
+                value={taskColumnId ? String(taskColumnId) : undefined}
+                onValueChange={(value) => setTaskColumnId(Number(value))}
               >
-                <option value="" disabled>
-                  Select column
-                </option>
-                {columns.map((column) => (
-                  <option key={column.id} value={column.id}>
-                    {column.name}
-                  </option>
-                ))}
+                <SelectTrigger id="task-column">
+                  <SelectValue placeholder="Select column" />
+                </SelectTrigger>
+                <SelectContent>
+                  {columns.map((column) => (
+                    <SelectItem key={column.id} value={String(column.id)}>
+                      {column.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="task-priority">Priority</Label>
-              <Select
-                id="task-priority"
-                value={taskPriority}
-                onChange={(event) => setTaskPriority(event.target.value as TaskPriority)}
-              >
-                <option value="LOW">Low</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="HIGH">High</option>
+              <Select value={taskPriority} onValueChange={(value) => setTaskPriority(value as TaskPriority)}>
+                <SelectTrigger id="task-priority">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LOW">Low</SelectItem>
+                  <SelectItem value="MEDIUM">Medium</SelectItem>
+                  <SelectItem value="HIGH">High</SelectItem>
+                </SelectContent>
               </Select>
             </div>
           </div>
