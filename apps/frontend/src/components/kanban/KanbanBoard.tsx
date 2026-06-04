@@ -1,56 +1,76 @@
-import { ArrowRight, CalendarDays } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import type { Task, TaskStatus } from '@/types/task';
-
-const columns: Array<{ status: TaskStatus; label: string }> = [
-  { status: 'TODO', label: 'Todo' },
-  { status: 'IN_PROGRESS', label: 'In Progress' },
-  { status: 'REVIEW', label: 'Review' },
-  { status: 'DONE', label: 'Done' },
-];
+import { ArrowRight, CalendarDays, Pencil, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import type { BoardColumn } from "@/types/board";
+import type { Task } from "@/types/task";
 
 const priorityClass = {
-  LOW: 'bg-emerald-50 text-emerald-700',
-  MEDIUM: 'bg-amber-50 text-amber-700',
-  HIGH: 'bg-rose-50 text-rose-700',
+  LOW: "bg-emerald-50 text-emerald-700",
+  MEDIUM: "bg-amber-50 text-amber-700",
+  HIGH: "bg-rose-50 text-rose-700",
 };
 
 type KanbanBoardProps = {
+  columns: BoardColumn[];
   isLoading: boolean;
-  movingTaskId: number | null;
-  tasks: Task[];
-  onMoveTask: (task: Task, status: TaskStatus) => void;
+  savingTaskId: number | null;
+  onDeleteColumn: (column: BoardColumn) => void;
+  onDeleteTask: (task: Task) => void;
+  onEditColumn: (column: BoardColumn) => void;
+  onEditTask: (task: Task) => void;
+  onMoveTask: (task: Task, columnId: number) => void;
 };
 
-function getNextStatus(status: TaskStatus) {
-  const index = columns.findIndex((column) => column.status === status);
+function getNextColumn(columns: BoardColumn[], columnId: number) {
+  const index = columns.findIndex((column) => column.id === columnId);
   return columns[index + 1] ?? null;
 }
 
 function formatDueDate(value: string | null) {
   if (!value) {
-    return 'No due date';
+    return "No due date";
   }
 
-  return new Intl.DateTimeFormat('en', {
-    month: 'short',
-    day: '2-digit',
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "2-digit",
   }).format(new Date(value));
 }
 
-export function KanbanBoard({ isLoading, movingTaskId, tasks, onMoveTask }: KanbanBoardProps) {
+export function KanbanBoard({
+  columns,
+  isLoading,
+  savingTaskId,
+  onDeleteColumn,
+  onDeleteTask,
+  onEditColumn,
+  onEditTask,
+  onMoveTask,
+}: KanbanBoardProps) {
   return (
     <section className="grid gap-4 lg:grid-cols-4">
       {columns.map((column) => {
-        const columnTasks = tasks.filter((task) => task.status === column.status);
+        const columnTasks = column.tasks ?? [];
 
         return (
-          <div key={column.status} className="flex min-h-[420px] flex-col rounded-lg border border-border bg-muted/40">
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <h2 className="text-sm font-semibold">{column.label}</h2>
-              <Badge>{columnTasks.length}</Badge>
+          <div
+            key={column.id}
+            className="flex min-h-[420px] flex-col rounded-lg border border-border bg-muted/40"
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <h2 className="truncate text-sm font-semibold">{column.name}</h2>
+                <Badge>{columnTasks.length}</Badge>
+              </div>
+              <div className="flex gap-1">
+                <Button size="icon" variant="ghost" title="Edit column" onClick={() => onEditColumn(column)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button size="icon" variant="ghost" title="Delete column" onClick={() => onDeleteColumn(column)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <div className="flex flex-1 flex-col gap-3 p-3">
               {isLoading ? (
@@ -69,16 +89,20 @@ export function KanbanBoard({ isLoading, movingTaskId, tasks, onMoveTask }: Kanb
 
               {!isLoading
                 ? columnTasks.map((task) => {
-                    const nextStatus = getNextStatus(task.status);
+                    const nextColumn = getNextColumn(columns, task.columnId);
 
                     return (
                       <Card key={task.id} className="p-4">
                         <div className="flex items-start justify-between gap-3">
-                          <h3 className="text-sm font-semibold leading-5">{task.title}</h3>
-                          <Badge className={priorityClass[task.priority]}>{task.priority}</Badge>
+                          <h3 className="text-sm font-semibold leading-5">
+                            {task.title}
+                          </h3>
+                          <Badge className={priorityClass[task.priority]}>
+                            {task.priority}
+                          </Badge>
                         </div>
                         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                          {task.description ?? 'No description'}
+                          {task.description ?? "No description"}
                         </p>
                         <div className="mt-4 flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -86,17 +110,25 @@ export function KanbanBoard({ isLoading, movingTaskId, tasks, onMoveTask }: Kanb
                             {formatDueDate(task.dueDate)}
                           </div>
 
-                          {nextStatus ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={movingTaskId === task.id}
-                              onClick={() => onMoveTask(task, nextStatus.status)}
-                            >
-                              <ArrowRight className="mr-2 h-3.5 w-3.5" />
-                              {nextStatus.label}
+                          <div className="flex gap-1">
+                            <Button size="icon" variant="ghost" title="Edit task" onClick={() => onEditTask(task)}>
+                              <Pencil className="h-4 w-4" />
                             </Button>
-                          ) : null}
+                            <Button size="icon" variant="ghost" title="Delete task" onClick={() => onDeleteTask(task)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                            {nextColumn ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={savingTaskId === task.id}
+                                onClick={() => onMoveTask(task, nextColumn.id)}
+                              >
+                                <ArrowRight className="mr-2 h-3.5 w-3.5" />
+                                {nextColumn.name}
+                              </Button>
+                            ) : null}
+                          </div>
                         </div>
                       </Card>
                     );
@@ -106,6 +138,11 @@ export function KanbanBoard({ isLoading, movingTaskId, tasks, onMoveTask }: Kanb
           </div>
         );
       })}
+      {!isLoading && columns.length === 0 ? (
+        <Card className="p-6 text-center text-sm text-muted-foreground lg:col-span-4">
+          Add a column to start organizing tasks.
+        </Card>
+      ) : null}
     </section>
   );
 }
