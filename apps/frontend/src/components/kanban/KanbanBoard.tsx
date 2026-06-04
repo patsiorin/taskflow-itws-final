@@ -2,6 +2,8 @@ import { ArrowRight, CalendarDays, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
+import { Tooltip } from "@/components/ui/tooltip";
 import type { BoardColumn } from "@/types/board";
 import type { Task } from "@/types/task";
 
@@ -64,12 +66,16 @@ export function KanbanBoard({
                 <Badge>{columnTasks.length}</Badge>
               </div>
               <div className="flex gap-1">
-                <Button size="icon" variant="ghost" title="Edit column" onClick={() => onEditColumn(column)}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button size="icon" variant="ghost" title="Delete column" onClick={() => onDeleteColumn(column)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <Tooltip content="Edit column">
+                  <Button size="icon" variant="ghost" onClick={() => onEditColumn(column)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </Tooltip>
+                <Tooltip content="Delete column">
+                  <Button size="icon" variant="ghost" onClick={() => onDeleteColumn(column)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </Tooltip>
               </div>
             </div>
             <div className="flex flex-1 flex-col gap-3 p-3">
@@ -97,7 +103,10 @@ export function KanbanBoard({
                           <h3 className="text-sm font-semibold leading-5">
                             {task.title}
                           </h3>
-                          <Badge className={priorityClass[task.priority]}>
+                          <Badge
+                            className={priorityClass[task.priority]}
+                            variant={task.priority === "HIGH" ? "danger" : task.priority === "LOW" ? "success" : "warning"}
+                          >
                             {task.priority}
                           </Badge>
                         </div>
@@ -111,22 +120,32 @@ export function KanbanBoard({
                           </div>
 
                           <div className="flex gap-1">
-                            <Button size="icon" variant="ghost" title="Edit task" onClick={() => onEditTask(task)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" title="Delete task" onClick={() => onDeleteTask(task)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                            {nextColumn ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={savingTaskId === task.id}
-                                onClick={() => onMoveTask(task, nextColumn.id)}
-                              >
-                                <ArrowRight className="mr-2 h-3.5 w-3.5" />
-                                {nextColumn.name}
+                            <Tooltip content="Edit task">
+                              <Button size="icon" variant="ghost" onClick={() => onEditTask(task)}>
+                                <Pencil className="h-4 w-4" />
                               </Button>
+                            </Tooltip>
+                            <Tooltip content="Delete task">
+                              <Button size="icon" variant="ghost" onClick={() => onDeleteTask(task)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </Tooltip>
+                            {nextColumn ? (
+                              <Tooltip content={`Move to ${nextColumn.name}`}>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={savingTaskId === task.id}
+                                  onClick={() => onMoveTask(task, nextColumn.id)}
+                                >
+                                  {savingTaskId === task.id ? (
+                                    <Spinner className="mr-2 h-3.5 w-3.5" />
+                                  ) : (
+                                    <ArrowRight className="mr-2 h-3.5 w-3.5" />
+                                  )}
+                                  {nextColumn.name}
+                                </Button>
+                              </Tooltip>
                             ) : null}
                           </div>
                         </div>

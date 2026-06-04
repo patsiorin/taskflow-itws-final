@@ -1,8 +1,19 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { KanbanBoard } from '@/components/kanban/KanbanBoard';
+import { Alert } from '@/components/ui/alert';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ConfirmDialog, Dialog, DialogActions } from '@/components/ui/dialog';
+import { Form } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
+import { toast } from '@/components/ui/sonner';
+import { Textarea } from '@/components/ui/textarea';
 import { BoardService } from '@/services/board.service';
 import { ColumnService } from '@/services/column.service';
 import { TaskService } from '@/services/task.service';
@@ -14,10 +25,18 @@ type BoardPageProps = {
   navigate: (to: string) => void;
 };
 
+type DeleteTarget =
+  | { kind: 'column'; item: BoardColumn }
+  | { kind: 'task'; item: Task }
+  | null;
+
 export function BoardPage({ boardId, navigate }: BoardPageProps) {
   const [activeBoard, setActiveBoard] = useState<Board | null>(null);
   const [editingColumn, setEditingColumn] = useState<BoardColumn | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
+  const [isColumnDialogOpen, setIsColumnDialogOpen] = useState(false);
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [columnName, setColumnName] = useState('');
   const [columnPosition, setColumnPosition] = useState(0);
   const [taskTitle, setTaskTitle] = useState('');
@@ -25,6 +44,7 @@ export function BoardPage({ boardId, navigate }: BoardPageProps) {
   const [taskColumnId, setTaskColumnId] = useState<number | null>(null);
   const [taskPriority, setTaskPriority] = useState<TaskPriority>('MEDIUM');
   const [isLoadingBoard, setIsLoadingBoard] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [savingTaskId, setSavingTaskId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,6 +63,7 @@ export function BoardPage({ boardId, navigate }: BoardPageProps) {
       setTaskColumnId((currentColumnId) => currentColumnId ?? board.columns?.[0]?.id ?? null);
     } catch {
       setError('Unable to load board.');
+      toast.error('Unable to load board.');
     } finally {
       setIsLoadingBoard(false);
     }
@@ -62,10 +83,21 @@ export function BoardPage({ boardId, navigate }: BoardPageProps) {
     setTaskPriority('MEDIUM');
   }
 
+  function openCreateColumn() {
+    resetColumnForm();
+    setIsColumnDialogOpen(true);
+  }
+
+  function openCreateTask() {
+    resetTaskForm();
+    setIsTaskDialogOpen(true);
+  }
+
   function startEditColumn(column: BoardColumn) {
     setEditingColumn(column);
     setColumnName(column.name);
     setColumnPosition(column.position);
+    setIsColumnDialogOpen(true);
   }
 
   function startEditTask(task: Task) {
@@ -74,10 +106,12 @@ export function BoardPage({ boardId, navigate }: BoardPageProps) {
     setTaskDescription(task.description ?? '');
     setTaskColumnId(task.columnId);
     setTaskPriority(task.priority);
+    setIsTaskDialogOpen(true);
   }
 
   async function handleSaveColumn(event: FormEvent) {
     event.preventDefault();
+    setIsSaving(true);
 
     try {
       setError(null);
@@ -87,32 +121,24 @@ export function BoardPage({ boardId, navigate }: BoardPageProps) {
           name: columnName,
           position: columnPosition,
         });
+        toast.success('Column updated.');
       } else {
         await ColumnService.createColumn({
           boardId,
           name: columnName,
           position: columnPosition,
         });
+        toast.success('Column created.');
       }
 
+      setIsColumnDialogOpen(false);
       resetColumnForm();
       await loadBoard();
     } catch {
       setError('Unable to save column.');
-    }
-  }
-
-  async function handleDeleteColumn(column: BoardColumn) {
-    if (!window.confirm(`Delete "${column.name}" and its tasks?`)) {
-      return;
-    }
-
-    try {
-      setError(null);
-      await ColumnService.deleteColumn(column.id);
-      await loadBoard();
-    } catch {
-      setError('Unable to delete column.');
+      toast.error('Unable to save column.');
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -121,8 +147,11 @@ export function BoardPage({ boardId, navigate }: BoardPageProps) {
 
     if (!taskColumnId) {
       setError('Create a column before adding tasks.');
+      toast.error('Create a column before adding tasks.');
       return;
     }
+
+    setIsSaving(true);
 
     try {
       setError(null);
@@ -134,6 +163,7 @@ export function BoardPage({ boardId, navigate }: BoardPageProps) {
           columnId: taskColumnId,
           priority: taskPriority,
         });
+        toast.success('Task updated.');
       } else {
         await TaskService.createTask({
           boardId,
@@ -142,12 +172,17 @@ export function BoardPage({ boardId, navigate }: BoardPageProps) {
           description: taskDescription,
           priority: taskPriority,
         });
+        toast.success('Task created.');
       }
 
+      setIsTaskDialogOpen(false);
       resetTaskForm();
       await loadBoard();
     } catch {
       setError('Unable to save task.');
+      toast.error('Unable to save task.');
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -156,149 +191,210 @@ export function BoardPage({ boardId, navigate }: BoardPageProps) {
       setError(null);
       setSavingTaskId(task.id);
       await TaskService.updateTask(task.id, { columnId });
+      toast.success('Task moved.');
       await loadBoard();
     } catch {
       setError('Unable to move task.');
+      toast.error('Unable to move task.');
     } finally {
       setSavingTaskId(null);
     }
   }
 
-  async function handleDeleteTask(task: Task) {
-    if (!window.confirm(`Delete "${task.title}"?`)) {
+  async function confirmDelete() {
+    if (!deleteTarget) {
       return;
     }
 
     try {
       setError(null);
-      setSavingTaskId(task.id);
-      await TaskService.deleteTask(task.id);
+
+      if (deleteTarget.kind === 'column') {
+        await ColumnService.deleteColumn(deleteTarget.item.id);
+        toast.success('Column deleted.');
+      } else {
+        await TaskService.deleteTask(deleteTarget.item.id);
+        toast.success('Task deleted.');
+      }
+
+      setDeleteTarget(null);
       await loadBoard();
     } catch {
-      setError('Unable to delete task.');
-    } finally {
-      setSavingTaskId(null);
+      setError(deleteTarget.kind === 'column' ? 'Unable to delete column.' : 'Unable to delete task.');
+      toast.error(deleteTarget.kind === 'column' ? 'Unable to delete column.' : 'Unable to delete task.');
     }
   }
 
   return (
-    <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
+    <main className="min-h-[calc(100vh-4rem)] px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <Button variant="ghost" className="mb-2 px-0" onClick={() => navigate('/')}>
+        <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div className="space-y-3">
+            <Breadcrumb
+              items={[
+                { label: 'Boards', onClick: () => navigate('/') },
+                { label: activeBoard?.name ?? 'Board' },
+              ]}
+            />
+            <div>
+              <h1 className="text-3xl font-semibold tracking-normal">{activeBoard?.name ?? 'Board'}</h1>
+              <p className="mt-1 text-sm text-muted-foreground">{activeBoard?.description ?? 'Columns and tasks'}</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate('/')}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Boards
             </Button>
-            <h1 className="text-3xl font-semibold tracking-normal">{activeBoard?.name ?? 'Board'}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{activeBoard?.description ?? 'Columns and tasks'}</p>
+            <Button variant="secondary" onClick={openCreateColumn}>
+              <Plus className="mr-2 h-4 w-4" />
+              Column
+            </Button>
+            <Button onClick={openCreateTask}>
+              <Plus className="mr-2 h-4 w-4" />
+              Task
+            </Button>
           </div>
         </header>
 
-        {error ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
-        ) : null}
+        {error ? <Alert variant="destructive">{error}</Alert> : null}
 
-        <section className="grid gap-4 lg:grid-cols-2">
-          <Card className="p-4">
-            <h2 className="text-lg font-semibold">Columns</h2>
-            <form className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_auto]" onSubmit={handleSaveColumn}>
-              <input
-                className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-                placeholder="Column name"
-                value={columnName}
-                onChange={(event) => setColumnName(event.target.value)}
-                required
+        <Card>
+          <CardHeader>
+            <CardTitle>Board Workspace</CardTitle>
+            <CardDescription>Manage columns and task cards for this board.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingBoard ? (
+              <div className="grid gap-4 lg:grid-cols-4">
+                <Skeleton className="h-72" />
+                <Skeleton className="h-72" />
+                <Skeleton className="h-72" />
+                <Skeleton className="h-72" />
+              </div>
+            ) : (
+              <KanbanBoard
+                columns={columns}
+                isLoading={isLoadingBoard}
+                savingTaskId={savingTaskId}
+                onDeleteColumn={(column) => setDeleteTarget({ kind: 'column', item: column })}
+                onDeleteTask={(task) => setDeleteTarget({ kind: 'task', item: task })}
+                onEditColumn={startEditColumn}
+                onEditTask={startEditTask}
+                onMoveTask={handleMoveTask}
               />
-              <input
-                className="h-10 w-24 rounded-md border border-border bg-background px-3 text-sm"
-                min={0}
-                type="number"
-                value={columnPosition}
-                onChange={(event) => setColumnPosition(Number(event.target.value))}
-              />
-              <div className="flex gap-2">
-                <Button type="submit">
-                  <Plus className="mr-2 h-4 w-4" />
-                  {editingColumn ? 'Save' : 'Add'}
-                </Button>
-                {editingColumn ? (
-                  <Button type="button" variant="outline" onClick={resetColumnForm}>
-                    Cancel
-                  </Button>
-                ) : null}
-              </div>
-            </form>
-          </Card>
-
-          <Card className="p-4">
-            <h2 className="text-lg font-semibold">Tasks</h2>
-            <form className="mt-4 grid gap-3" onSubmit={handleSaveTask}>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <input
-                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-                  placeholder="Task title"
-                  value={taskTitle}
-                  onChange={(event) => setTaskTitle(event.target.value)}
-                  required
-                />
-                <select
-                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-                  value={taskColumnId ?? ''}
-                  onChange={(event) => setTaskColumnId(Number(event.target.value))}
-                  required
-                >
-                  <option value="" disabled>
-                    Select column
-                  </option>
-                  {columns.map((column) => (
-                    <option key={column.id} value={column.id}>
-                      {column.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
-                <input
-                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-                  placeholder="Description"
-                  value={taskDescription}
-                  onChange={(event) => setTaskDescription(event.target.value)}
-                />
-                <select
-                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-                  value={taskPriority}
-                  onChange={(event) => setTaskPriority(event.target.value as TaskPriority)}
-                >
-                  <option value="LOW">Low</option>
-                  <option value="MEDIUM">Medium</option>
-                  <option value="HIGH">High</option>
-                </select>
-                <div className="flex gap-2">
-                  <Button type="submit">{editingTask ? 'Save' : 'Add task'}</Button>
-                  {editingTask ? (
-                    <Button type="button" variant="outline" onClick={resetTaskForm}>
-                      Cancel
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-            </form>
-          </Card>
-        </section>
-
-        <KanbanBoard
-          columns={columns}
-          isLoading={isLoadingBoard}
-          savingTaskId={savingTaskId}
-          onDeleteColumn={handleDeleteColumn}
-          onDeleteTask={handleDeleteTask}
-          onEditColumn={startEditColumn}
-          onEditTask={startEditTask}
-          onMoveTask={handleMoveTask}
-        />
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      <Dialog
+        isOpen={isColumnDialogOpen}
+        title={editingColumn ? 'Edit column' : 'Create column'}
+        description="Columns define the stages inside a board."
+        onClose={() => setIsColumnDialogOpen(false)}
+      >
+        <Form onSubmit={handleSaveColumn}>
+          <div className="grid gap-2">
+            <Label htmlFor="column-name">Name</Label>
+            <Input id="column-name" value={columnName} onChange={(event) => setColumnName(event.target.value)} required />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="column-position">Position</Label>
+            <Input
+              id="column-position"
+              min={0}
+              type="number"
+              value={columnPosition}
+              onChange={(event) => setColumnPosition(Number(event.target.value))}
+            />
+          </div>
+          <DialogActions>
+            <Button type="button" variant="outline" onClick={() => setIsColumnDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? <Spinner className="mr-2" /> : null}
+              {editingColumn ? 'Save' : 'Create'}
+            </Button>
+          </DialogActions>
+        </Form>
+      </Dialog>
+
+      <Dialog
+        isOpen={isTaskDialogOpen}
+        title={editingTask ? 'Edit task' : 'Create task'}
+        description="Tasks are cards inside board columns."
+        onClose={() => setIsTaskDialogOpen(false)}
+      >
+        <Form onSubmit={handleSaveTask}>
+          <div className="grid gap-2">
+            <Label htmlFor="task-title">Title</Label>
+            <Input id="task-title" value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} required />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="task-description">Description</Label>
+            <Textarea
+              id="task-description"
+              value={taskDescription}
+              onChange={(event) => setTaskDescription(event.target.value)}
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="task-column">Column</Label>
+              <Select
+                id="task-column"
+                value={taskColumnId ?? ''}
+                onChange={(event) => setTaskColumnId(Number(event.target.value))}
+                required
+              >
+                <option value="" disabled>
+                  Select column
+                </option>
+                {columns.map((column) => (
+                  <option key={column.id} value={column.id}>
+                    {column.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="task-priority">Priority</Label>
+              <Select
+                id="task-priority"
+                value={taskPriority}
+                onChange={(event) => setTaskPriority(event.target.value as TaskPriority)}
+              >
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+              </Select>
+            </div>
+          </div>
+          <DialogActions>
+            <Button type="button" variant="outline" onClick={() => setIsTaskDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? <Spinner className="mr-2" /> : null}
+              {editingTask ? 'Save' : 'Create'}
+            </Button>
+          </DialogActions>
+        </Form>
+      </Dialog>
+
+      <ConfirmDialog
+        isOpen={Boolean(deleteTarget)}
+        title={deleteTarget?.kind === 'column' ? 'Delete column?' : 'Delete task?'}
+        body={
+          deleteTarget?.kind === 'column'
+            ? `This will delete "${deleteTarget.item.name}" and all tasks inside it.`
+            : `This will delete "${deleteTarget?.item.title ?? 'this task'}".`
+        }
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+      />
     </main>
   );
 }
-
