@@ -9,21 +9,28 @@ export class TasksRepository {
   findMany(boardId?: number) {
     return this.prisma.task.findMany({
       where: boardId ? { boardId } : undefined,
-      include: { board: true },
-      orderBy: [{ status: 'asc' }, { position: 'asc' }, { updatedAt: 'desc' }],
+      include: { board: true, column: true },
+      orderBy: [{ columnId: 'asc' }, { position: 'asc' }, { updatedAt: 'desc' }],
     });
   }
 
   findById(id: number) {
     return this.prisma.task.findUnique({
       where: { id },
-      include: { board: true },
+      include: { board: true, column: true },
     });
   }
 
   boardExists(boardId: number) {
     return this.prisma.board.findUnique({
       where: { id: boardId },
+      select: { id: true },
+    });
+  }
+
+  columnForBoardExists(columnId: number, boardId: number) {
+    return this.prisma.boardColumn.findFirst({
+      where: { id: columnId, boardId },
       select: { id: true },
     });
   }
@@ -45,4 +52,3 @@ export class TasksRepository {
     });
   }
 }
-

@@ -8,7 +8,7 @@ export class BoardsRepository {
 
   findMany() {
     return this.prisma.board.findMany({
-      include: { _count: { select: { tasks: true } } },
+      include: { _count: { select: { columns: true, tasks: true } } },
       orderBy: { updatedAt: 'desc' },
     });
   }
@@ -17,8 +17,9 @@ export class BoardsRepository {
     return this.prisma.board.findUnique({
       where: { id },
       include: {
-        tasks: {
-          orderBy: [{ status: 'asc' }, { position: 'asc' }],
+        columns: {
+          include: { tasks: { orderBy: { position: 'asc' } } },
+          orderBy: { position: 'asc' },
         },
       },
     });
@@ -41,4 +42,3 @@ export class BoardsRepository {
     });
   }
 }
-

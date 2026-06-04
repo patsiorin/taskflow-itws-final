@@ -25,9 +25,9 @@ database
 
 ## Exam Requirements Covered
 
-- Database has two tables: `boards` and `tasks`
-- One-to-many relation: one board has many tasks
-- CRUD is planned for both boards and tasks
+- Database has three tables: `boards`, `board_columns`, and `tasks`
+- One-to-many relations: board to columns, board to tasks, column to tasks
+- CRUD is available for boards, columns, and tasks
 - Backend: NestJS
 - Frontend: React, Vite, Tailwind CSS
 - Database dump included in `database/dump.sql`

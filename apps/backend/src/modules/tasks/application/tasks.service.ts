@@ -24,14 +24,21 @@ export class TasksService {
 
   async create(data: CreateTaskDto) {
     await this.ensureBoardExists(data.boardId);
+    await this.ensureColumnBelongsToBoard(data.columnId, data.boardId);
     return this.tasksRepository.create(this.toCreateRepositoryData(data));
   }
 
   async update(id: number, data: UpdateTaskDto) {
-    await this.findOne(id);
+    const task = await this.findOne(id);
+    const boardId = data.boardId ?? task.boardId;
+    const columnId = data.columnId ?? task.columnId;
 
     if (data.boardId) {
       await this.ensureBoardExists(data.boardId);
+    }
+
+    if (data.boardId || data.columnId) {
+      await this.ensureColumnBelongsToBoard(columnId, boardId);
     }
 
     return this.tasksRepository.update(id, this.toUpdateRepositoryData(data));
@@ -61,6 +68,14 @@ export class TasksService {
 
     if (!board) {
       throw new NotFoundException('Board not found');
+    }
+  }
+
+  private async ensureColumnBelongsToBoard(columnId: number, boardId: number) {
+    const column = await this.tasksRepository.columnForBoardExists(columnId, boardId);
+
+    if (!column) {
+      throw new NotFoundException('Column not found for board');
     }
   }
 }

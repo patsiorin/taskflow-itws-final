@@ -1,4 +1,4 @@
-import { TaskPriority, TaskStatus } from '@prisma/client';
+import { TaskPriority } from '@prisma/client';
 import { IsDateString, IsEnum, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 
 export class UpdateTaskDto {
@@ -6,6 +6,11 @@ export class UpdateTaskDto {
   @IsInt()
   @Min(1)
   boardId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  columnId?: number;
 
   @IsOptional()
   @IsString()
@@ -16,10 +21,6 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsString()
   description?: string;
-
-  @IsOptional()
-  @IsEnum(TaskStatus)
-  status?: TaskStatus;
 
   @IsOptional()
   @IsEnum(TaskPriority)
@@ -34,4 +35,3 @@ export class UpdateTaskDto {
   @Min(0)
   position?: number;
 }
-

@@ -7,13 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum TaskStatus {
-  TODO
-  IN_PROGRESS
-  REVIEW
-  DONE
-}
-
 enum TaskPriority {
   LOW
   MEDIUM
@@ -25,6 +18,7 @@ model Board {
   name        String   @db.VarChar(120)
   description String?  @db.Text
   color       String   @default("#2563eb") @db.VarChar(32)
+  columns     BoardColumn[]
   tasks       Task[]
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -32,13 +26,28 @@ model Board {
   @@map("boards")
 }
 
+model BoardColumn {
+  id        Int      @id @default(autoincrement())
+  boardId   Int      @map("board_id")
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  name      String   @db.VarChar(120)
+  position  Int      @default(0)
+  tasks     Task[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([boardId])
+  @@map("board_columns")
+}
+
 model Task {
   id          Int          @id @default(autoincrement())
   boardId     Int          @map("board_id")
   board       Board        @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  columnId    Int          @map("column_id")
+  column      BoardColumn  @relation(fields: [columnId], references: [id], onDelete: Cascade)
   title       String       @db.VarChar(160)
   description String?      @db.Text
-  status      TaskStatus   @default(TODO)
   priority    TaskPriority @default(MEDIUM)
   dueDate     DateTime?    @map("due_date")
   position    Int          @default(0)
@@ -46,5 +55,6 @@ model Task {
   updatedAt   DateTime     @updatedAt @map("updated_at")
 
   @@index([boardId])
+  @@index([columnId])
   @@map("tasks")
 }
