@@ -20,7 +20,7 @@ apps/backend
   src/shared/prisma               Shared Prisma client
 
 database
-  dump.sql        PostgreSQL schema and starter data for submission
+  dump.sql        PostgreSQL schema for submission
 ```
 
 ## Exam Requirements Covered
