@@ -13,7 +13,9 @@
     "frontend:build": "npm run build -w @taskflow/frontend",
     "backend:dev": "npm run start:dev -w @taskflow/backend",
     "backend:build": "npm run build -w @taskflow/backend",
+    "db:apply": "npm run db:apply -w @taskflow/backend",
     "prisma:generate": "npm run prisma:generate -w @taskflow/backend",
+    "prisma:push": "npm run prisma:push -w @taskflow/backend",
     "prisma:migrate": "npm run prisma:migrate -w @taskflow/backend",
     "build": "npm run backend:build && npm run frontend:build"
   },

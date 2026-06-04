@@ -46,6 +46,7 @@ psql -U postgres -d ws -f database/dump.sql
 ```bash
 npm install
 cp apps/backend/.env.example apps/backend/.env
+npm run db:apply
 npm run prisma:generate
 npm run dev
 ```
