@@ -4,6 +4,7 @@ import { BoardsService } from './application/boards.service';
 import { BoardsRepository } from './infrastructure/boards.repository';
 import { BoardsController } from './presentation/boards.controller';
 
+// A feature module groups one business area: routes, logic, and database access.
 @Module({
   imports: [PrismaModule],
   controllers: [BoardsController],
@@ -11,4 +12,3 @@ import { BoardsController } from './presentation/boards.controller';
   exports: [BoardsService],
 })
 export class BoardsModule {}
-

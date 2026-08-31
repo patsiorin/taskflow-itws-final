@@ -1,5 +1,6 @@
 import { IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 
+// All fields are optional because PATCH updates only supplied fields.
 export class UpdateColumnDto {
   @IsOptional()
   @IsInt()
@@ -17,4 +18,3 @@ export class UpdateColumnDto {
   @Min(0)
   position?: number;
 }
-

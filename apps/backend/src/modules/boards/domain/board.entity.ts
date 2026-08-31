@@ -1,3 +1,4 @@
+// Domain type used by the app to describe a board independent of HTTP details.
 export type BoardEntity = {
   id: number;
   name: string;
@@ -6,4 +7,3 @@ export type BoardEntity = {
   createdAt: Date;
   updatedAt: Date;
 };
-

@@ -1,6 +1,8 @@
 import { IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 
+// Request body required to create a board column.
 export class CreateColumnDto {
+  // boardId is a foreign key to the boards table.
   @IsInt()
   @Min(1)
   boardId!: number;
@@ -15,4 +17,3 @@ export class CreateColumnDto {
   @Min(0)
   position?: number;
 }
-

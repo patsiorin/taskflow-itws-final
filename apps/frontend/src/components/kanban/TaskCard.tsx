@@ -1,3 +1,5 @@
+import { forwardRef } from "react";
+import type { HTMLAttributes } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { CalendarDays, Pencil, Trash2 } from "lucide-react";
@@ -5,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tooltip } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import type { Task } from "@/types/task";
 
 const priorityClass = {
@@ -18,6 +21,8 @@ type TaskCardProps = {
   onDelete: (task: Task) => void;
   onEdit: (task: Task) => void;
 };
+
+type TaskCardContentProps = TaskCardProps & HTMLAttributes<HTMLDivElement>;
 
 function formatDueDate(value: string | null) {
   if (!value) {
@@ -42,14 +47,24 @@ export function TaskCard({ task, onDelete, onEdit }: TaskCardProps) {
   };
 
   return (
-    <Card
+    <TaskCardContent
       ref={setNodeRef}
-      className="task-card p-4"
+      task={task}
+      onDelete={onDelete}
+      onEdit={onEdit}
+      className="task-card"
       data-task-id={task.id}
       style={style}
       {...attributes}
       {...listeners}
-    >
+    />
+  );
+}
+
+// This visual card is separate so DragOverlay can render a non-sortable preview.
+export const TaskCardContent = forwardRef<HTMLDivElement, TaskCardContentProps>(
+  ({ task, onDelete, onEdit, className, ...props }, ref) => (
+    <Card ref={ref} className={cn("p-4", className)} {...props}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2">
           <h3 className="text-sm font-semibold leading-5">{task.title}</h3>
@@ -84,5 +99,7 @@ export function TaskCard({ task, onDelete, onEdit }: TaskCardProps) {
         </div>
       </div>
     </Card>
-  );
-}
+  ),
+);
+
+TaskCardContent.displayName = "TaskCardContent";

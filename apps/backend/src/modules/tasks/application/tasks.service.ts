@@ -5,6 +5,7 @@ import { ReorderTasksDto } from '../dto/reorder-tasks.dto';
 import { UpdateTaskDto } from '../dto/update-task.dto';
 import { TasksRepository } from '../infrastructure/tasks.repository';
 
+// TaskService protects task rules before data is written to the database.
 @Injectable()
 export class TasksService {
   constructor(private readonly tasksRepository: TasksRepository) {}
@@ -24,6 +25,7 @@ export class TasksService {
   }
 
   async create(data: CreateTaskDto) {
+    // A task must belong to an existing board and to a column inside that board.
     await this.ensureBoardExists(data.boardId);
     await this.ensureColumnBelongsToBoard(data.columnId, data.boardId);
     return this.tasksRepository.create(this.toCreateRepositoryData(data));
@@ -31,6 +33,7 @@ export class TasksService {
 
   async update(id: number, data: UpdateTaskDto) {
     const task = await this.findOne(id);
+    // Keep current values when PATCH does not provide boardId or columnId.
     const boardId = data.boardId ?? task.boardId;
     const columnId = data.columnId ?? task.columnId;
 
@@ -39,6 +42,7 @@ export class TasksService {
     }
 
     if (data.boardId || data.columnId) {
+      // This prevents moving a task into a column from a different board.
       await this.ensureColumnBelongsToBoard(columnId, boardId);
     }
 
@@ -55,6 +59,7 @@ export class TasksService {
 
     const taskIds = data.tasks.map((task) => task.id);
     const columnIds = [...new Set(data.tasks.map((task) => task.columnId))];
+    // Both counts must match so every moved task/column belongs to this board.
     const matchingTasksCount = await this.tasksRepository.countForBoard(data.boardId, taskIds);
     const matchingColumnsCount = await this.tasksRepository.countColumnsForBoard(data.boardId, columnIds);
 
@@ -72,6 +77,7 @@ export class TasksService {
   private toCreateRepositoryData(data: CreateTaskDto): Prisma.TaskUncheckedCreateInput {
     return {
       ...data,
+      // Prisma expects Date objects for DateTime columns, while HTTP sends strings.
       dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
     };
   }
@@ -79,6 +85,7 @@ export class TasksService {
   private toUpdateRepositoryData(data: UpdateTaskDto): Prisma.TaskUncheckedUpdateInput {
     return {
       ...data,
+      // undefined means "do not update this field" for Prisma.
       dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
     };
   }

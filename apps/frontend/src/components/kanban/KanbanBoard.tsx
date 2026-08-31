@@ -1,10 +1,12 @@
-import { DndContext, PointerSensor, closestCorners, useSensor, useSensors } from "@dnd-kit/core";
-import type { DragEndEvent } from "@dnd-kit/core";
+import { useState } from "react";
+import { DndContext, DragOverlay, PointerSensor, closestCorners, useSensor, useSensors } from "@dnd-kit/core";
+import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from "@dnd-kit/sortable";
 import { Card } from "@/components/ui/card";
 import type { BoardColumn, ReorderColumnInput } from "@/types/board";
 import type { ReorderTaskInput, Task } from "@/types/task";
-import { KanbanColumn } from "./KanbanColumn";
+import { KanbanColumn, KanbanColumnContent } from "./KanbanColumn";
+import { TaskCardContent } from "./TaskCard";
 
 type KanbanBoardProps = {
   columns: BoardColumn[];
@@ -27,9 +29,21 @@ export function KanbanBoard({
   onReorderColumns,
   onReorderTasks,
 }: KanbanBoardProps) {
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [activeColumn, setActiveColumn] = useState<BoardColumn | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
+  function handleDragStart(event: DragStartEvent) {
+    const task = event.active.data.current?.task as Task | undefined;
+    const column = event.active.data.current?.column as BoardColumn | undefined;
+    setActiveTask(task ?? null);
+    setActiveColumn(column ?? null);
+  }
+
   function handleDragEnd(event: DragEndEvent) {
+    setActiveTask(null);
+    setActiveColumn(null);
+
     const activeId = String(event.active.id);
     const overId = event.over ? String(event.over.id) : "";
 
@@ -133,10 +147,19 @@ export function KanbanBoard({
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-      <div className="overflow-x-auto pb-3">
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragCancel={() => {
+        setActiveTask(null);
+        setActiveColumn(null);
+      }}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="overflow-x-auto overflow-y-hidden pb-3">
         <SortableContext items={columns.map((column) => getItemId("column", column.id))} strategy={horizontalListSortingStrategy}>
-          <section className="flex min-w-max gap-4">
+          <section className="grid w-full grid-flow-col auto-cols-[minmax(17rem,calc((100%_-_3rem)/4))] gap-4">
             {columns.map((column) => (
               <KanbanColumn
                 key={column.id}
@@ -149,13 +172,34 @@ export function KanbanBoard({
               />
             ))}
             {!isLoading && columns.length === 0 ? (
-              <Card className="w-full min-w-[20rem] p-6 text-center text-sm text-muted-foreground">
+              <Card className="min-w-[17rem] p-6 text-center text-sm text-muted-foreground">
                 Add a column to start organizing tasks.
               </Card>
             ) : null}
           </section>
         </SortableContext>
       </div>
+      <DragOverlay>
+        {activeColumn ? (
+          <KanbanColumnContent
+            column={activeColumn}
+            isLoading={false}
+            onDeleteColumn={onDeleteColumn}
+            onDeleteTask={onDeleteTask}
+            onEditColumn={onEditColumn}
+            onEditTask={onEditTask}
+            renderSortableTasks={false}
+            className="w-[19rem] cursor-grabbing shadow-lg"
+          />
+        ) : activeTask ? (
+          <TaskCardContent
+            task={activeTask}
+            onDelete={onDeleteTask}
+            onEdit={onEditTask}
+            className="w-[20rem] cursor-grabbing shadow-lg"
+          />
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }

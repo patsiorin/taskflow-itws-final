@@ -1,3 +1,4 @@
+// Domain type for a Kanban column row.
 export type ColumnEntity = {
   id: number;
   boardId: number;
@@ -6,4 +7,3 @@ export type ColumnEntity = {
   createdAt: Date;
   updatedAt: Date;
 };
-

@@ -4,8 +4,10 @@ import { CreateBoardDto } from '../dto/create-board.dto';
 import { ReorderBoardsDto } from '../dto/reorder-boards.dto';
 import { UpdateBoardDto } from '../dto/update-board.dto';
 
+// With the global /api prefix, this controller handles /api/boards routes.
 @Controller('boards')
 export class BoardsController {
+  // NestJS injects BoardsService because it is registered in BoardsModule.
   constructor(private readonly boardsService: BoardsService) {}
 
   @Get()
@@ -14,6 +16,7 @@ export class BoardsController {
   }
 
   @Get(':id')
+  // ParseIntPipe converts the route string ":id" to number and rejects invalid IDs.
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.boardsService.findOne(id);
   }
@@ -24,6 +27,7 @@ export class BoardsController {
   }
 
   @Patch('reorder')
+  // The reorder route receives the full board order after drag-and-drop.
   reorder(@Body() data: ReorderBoardsDto) {
     return this.boardsService.reorder(data);
   }

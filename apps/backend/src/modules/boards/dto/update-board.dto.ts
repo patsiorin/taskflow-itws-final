@@ -1,5 +1,6 @@
 import { IsHexColor, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 
+// Update DTO fields are optional because PATCH can update only part of a board.
 export class UpdateBoardDto {
   @IsOptional()
   @IsString()

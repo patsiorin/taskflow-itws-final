@@ -4,10 +4,10 @@ import { ColumnsService } from './application/columns.service';
 import { ColumnsRepository } from './infrastructure/columns.repository';
 import { ColumnsController } from './presentation/columns.controller';
 
+// Column routes, business logic, and database access are registered together here.
 @Module({
   imports: [PrismaModule],
   controllers: [ColumnsController],
   providers: [ColumnsService, ColumnsRepository],
 })
 export class ColumnsModule {}
-

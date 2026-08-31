@@ -1,5 +1,7 @@
+// String union that mirrors the Prisma TaskPriority enum.
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
 
+// Domain type for a Kanban task card.
 export type TaskEntity = {
   id: number;
   boardId: number;

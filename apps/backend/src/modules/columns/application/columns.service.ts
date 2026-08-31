@@ -4,6 +4,7 @@ import { ReorderColumnsDto } from '../dto/reorder-columns.dto';
 import { UpdateColumnDto } from '../dto/update-column.dto';
 import { ColumnsRepository } from '../infrastructure/columns.repository';
 
+// ColumnService owns rules that are more than a simple database query.
 @Injectable()
 export class ColumnsService {
   constructor(private readonly columnsRepository: ColumnsRepository) {}
@@ -23,6 +24,7 @@ export class ColumnsService {
   }
 
   async create(data: CreateColumnDto) {
+    // A column cannot exist without a valid parent board.
     await this.ensureBoardExists(data.boardId);
     return this.columnsRepository.create(data);
   }
@@ -31,6 +33,7 @@ export class ColumnsService {
     await this.findOne(id);
 
     if (data.boardId) {
+      // If a column is moved to another board, validate the target board first.
       await this.ensureBoardExists(data.boardId);
     }
 
@@ -41,6 +44,7 @@ export class ColumnsService {
     await this.ensureBoardExists(data.boardId);
 
     const columnIds = data.columns.map((column) => column.id);
+    // This prevents clients from reordering columns that belong to another board.
     const matchingColumnsCount = await this.columnsRepository.countForBoard(data.boardId, columnIds);
 
     if (matchingColumnsCount !== columnIds.length) {
@@ -56,6 +60,7 @@ export class ColumnsService {
   }
 
   private async ensureBoardExists(boardId: number) {
+    // Only the id is selected because we just need to know if the row exists.
     const board = await this.columnsRepository.boardExists(boardId);
 
     if (!board) {

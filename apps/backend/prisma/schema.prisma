@@ -1,35 +1,45 @@
 generator client {
+  // Generates the typed Prisma Client used by repositories.
   provider = "prisma-client-js"
 }
 
 datasource db {
+  // PostgreSQL connection string is read from apps/backend/.env.
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
+// Database enum used to restrict task priority values.
 enum TaskPriority {
   LOW
   MEDIUM
   HIGH
 }
 
+// Board is the top-level project container in the Kanban app.
 model Board {
   id          Int      @id @default(autoincrement())
   name        String   @db.VarChar(120)
   description String?  @db.Text
   color       String   @default("#2563eb") @db.VarChar(32)
+  // position stores manual drag-and-drop ordering.
   position    Int      @default(0)
+  // One board has many columns and tasks.
   columns     BoardColumn[]
   tasks       Task[]
+  // @map keeps TypeScript camelCase while the database uses snake_case.
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  // @@map sets the real database table name.
   @@map("boards")
 }
 
+// BoardColumn belongs to one board and contains many task cards.
 model BoardColumn {
   id        Int      @id @default(autoincrement())
   boardId   Int      @map("board_id")
+  // onDelete: Cascade deletes columns automatically when their board is deleted.
   board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
   name      String   @db.VarChar(120)
   position  Int      @default(0)
@@ -37,10 +47,12 @@ model BoardColumn {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // Index speeds up queries that filter columns by boardId.
   @@index([boardId])
   @@map("board_columns")
 }
 
+// Task belongs to one board and one column.
 model Task {
   id          Int          @id @default(autoincrement())
   boardId     Int          @map("board_id")
@@ -51,10 +63,12 @@ model Task {
   description String?      @db.Text
   priority    TaskPriority @default(MEDIUM)
   dueDate     DateTime?    @map("due_date")
+  // position stores the task order inside a column.
   position    Int          @default(0)
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
 
+  // Indexes speed up board and column task lists.
   @@index([boardId])
   @@index([columnId])
   @@map("tasks")

@@ -1,6 +1,7 @@
 import { TaskPriority } from '@prisma/client';
 import { IsDateString, IsEnum, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 
+// Update task fields are optional because PATCH may send only one changed field.
 export class UpdateTaskDto {
   @IsOptional()
   @IsInt()
@@ -23,6 +24,7 @@ export class UpdateTaskDto {
   description?: string;
 
   @IsOptional()
+  // Keeps priority limited to the database enum values.
   @IsEnum(TaskPriority)
   priority?: TaskPriority;
 

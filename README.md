@@ -23,6 +23,107 @@ database
   dump.sql        PostgreSQL schema and sample data for submission
 ```
 
+### Runtime
+
+The project is tested with Node.js `22.15.1` and npm `10.9.2`.
+
+Use the included `.nvmrc` if you have NVM installed:
+
+```bash
+nvm use
+```
+
+The root `package.json` also declares `engines` as Node `>=20 <23` and npm `>=10`. Node 22 LTS is the recommended version for the exam/demo setup.
+
+### Backend Architecture
+
+The backend is a NestJS REST API using Prisma as the database client.
+
+```text
+src/main.ts
+  Starts the NestJS app, sets the /api prefix, enables CORS, and turns on DTO validation.
+
+src/app.module.ts
+  Root NestJS module. It imports the feature modules used by the app.
+
+src/shared/prisma
+  PrismaService wraps PrismaClient so NestJS can inject one shared database client.
+
+src/modules/boards
+  CRUD and ordering for boards.
+
+src/modules/columns
+  CRUD and ordering for board columns.
+
+src/modules/tasks
+  CRUD, task movement between columns, and task ordering.
+```
+
+Each backend feature module follows the same layered structure:
+
+```text
+presentation/controller
+  Receives HTTP requests and maps routes such as GET, POST, PATCH, DELETE.
+
+application/service
+  Contains business rules, for example checking that a board exists before creating a column.
+
+infrastructure/repository
+  Contains Prisma queries. This is the only layer that talks directly to the database.
+
+dto
+  Request body validation classes. class-validator decorators reject invalid input.
+
+domain
+  Simple TypeScript types representing the app's main data objects.
+```
+
+Important Prisma ideas used here:
+
+- `include` loads related data, for example a board with its columns and tasks.
+- `_count` asks Prisma to return counts of related records without loading all those records.
+- `select` chooses only specific fields from a model, useful for existence checks like `select: { id: true }`.
+- `$transaction` runs several database updates as one unit, useful when saving drag-and-drop order.
+- `UncheckedCreateInput` / `UncheckedUpdateInput` allow writing foreign key fields such as `boardId` and `columnId` directly.
+
+### Frontend Architecture
+
+The frontend is a React + Vite app. It talks to the backend through typed service classes.
+
+```text
+src/App.tsx
+  Small client-side router and dark mode state.
+
+src/api
+  API root, endpoint builders, and the shared fetch wrapper.
+
+src/services
+  Frontend API service layer. Components call BoardService, ColumnService, and TaskService.
+
+src/types
+  TypeScript shapes shared by pages, components, and services.
+
+src/pages
+  Route-level screens: board list and one board's Kanban view.
+
+src/components/boards
+  Board table rows and board create/edit/delete dialogs.
+
+src/components/kanban
+  Kanban board, columns, task cards, dialogs, and dnd-kit drag-and-drop wiring.
+
+src/components/ui
+  Reusable UI primitives such as buttons, cards, dialogs, tables, inputs, and alerts.
+```
+
+Frontend data flow:
+
+1. A page loads data through a service, for example `BoardService.getBoard(id)`.
+2. The service calls `httpClient`, which sends a request to `/api/...`.
+3. React state stores the result and passes it down to components.
+4. Create/edit/delete/reorder actions call a service method.
+5. After saving, the page updates local state or reloads the board from the backend.
+
 ## Exam Requirements Covered
 
 - Database has three tables: `boards`, `board_columns`, and `tasks`
