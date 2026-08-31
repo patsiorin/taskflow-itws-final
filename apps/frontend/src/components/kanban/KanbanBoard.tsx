@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useRef } from "react";
-import dragula from "dragula";
-import type { Drake } from "dragula";
+import { DndContext, PointerSensor, closestCorners, useSensor, useSensors } from "@dnd-kit/core";
+import type { DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, horizontalListSortingStrategy } from "@dnd-kit/sortable";
 import { Card } from "@/components/ui/card";
-import type { BoardColumn } from "@/types/board";
-import type { Task } from "@/types/task";
+import type { BoardColumn, ReorderColumnInput } from "@/types/board";
+import type { ReorderTaskInput, Task } from "@/types/task";
 import { KanbanColumn } from "./KanbanColumn";
-
-const interactiveSelector = "button, a, input, textarea, select, [role='button']";
 
 type KanbanBoardProps = {
   columns: BoardColumn[];
@@ -15,8 +13,8 @@ type KanbanBoardProps = {
   onDeleteTask: (task: Task) => void;
   onEditColumn: (column: BoardColumn) => void;
   onEditTask: (task: Task) => void;
-  onMoveTask: (task: Task, columnId: number, position: number) => void;
-  onReorderColumns: (columns: BoardColumn[]) => void;
+  onReorderColumns: (columns: ReorderColumnInput[]) => void;
+  onReorderTasks: (tasks: ReorderTaskInput[]) => void;
 };
 
 export function KanbanBoard({
@@ -26,128 +24,160 @@ export function KanbanBoard({
   onDeleteTask,
   onEditColumn,
   onEditTask,
-  onMoveTask,
   onReorderColumns,
+  onReorderTasks,
 }: KanbanBoardProps) {
-  const columnsContainerRef = useRef<HTMLElement | null>(null);
-  const containerRefs = useRef(new Map<number, HTMLDivElement>());
-  const columnById = useMemo(() => {
-    return new Map(columns.map((column) => [column.id, column]));
-  }, [columns]);
-  const taskById = useMemo(() => {
-    return new Map(columns.flatMap((column) => column.tasks ?? []).map((task) => [task.id, task]));
-  }, [columns]);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
-  useEffect(() => {
-    if (isLoading || columns.length === 0) {
+  function handleDragEnd(event: DragEndEvent) {
+    const activeId = String(event.active.id);
+    const overId = event.over ? String(event.over.id) : "";
+
+    if (!overId || activeId === overId) {
       return;
     }
 
-    const containers = columns
-      .map((column) => containerRefs.current.get(column.id))
-      .filter((container): container is HTMLDivElement => Boolean(container));
+    if (activeId.startsWith("column-")) {
+      const overColumnId = overId.startsWith("task-")
+        ? findTaskColumn(columns, getNumericId(overId))?.id
+        : getNumericId(overId);
 
-    if (containers.length === 0) {
+      if (overColumnId) {
+        reorderColumns(activeId, getItemId("column", overColumnId));
+      }
+
       return;
     }
 
-    // Task Dragula instance: cards can move within a column or between columns.
-    const drake: Drake = dragula(containers, {
-      revertOnSpill: true,
-      moves: (element, _source, handle) => {
-        return Boolean(element?.hasAttribute("data-task-id") && !handle?.closest(interactiveSelector));
-      },
-      accepts: (element, target) => {
-        return Boolean(element?.hasAttribute("data-task-id") && target?.hasAttribute("data-column-id"));
-      },
-    });
+    if (activeId.startsWith("task-")) {
+      reorderTasks(activeId, overId);
+    }
+  }
 
-    drake.on("drop", (element, target) => {
-      // DOM order after drop becomes the saved task position.
-      const taskId = Number((element as HTMLElement).dataset.taskId);
-      const columnId = Number((target as HTMLElement | null)?.dataset.columnId);
-      const taskCards = Array.from(target?.querySelectorAll<HTMLElement>("[data-task-id]") ?? []);
-      const position = taskCards.findIndex((taskCard) => Number(taskCard.dataset.taskId) === taskId) + 1;
-      const task = taskById.get(taskId);
+  function reorderColumns(activeId: string, overId: string) {
+    const oldIndex = columns.findIndex((column) => getItemId("column", column.id) === activeId);
+    const newIndex = columns.findIndex((column) => getItemId("column", column.id) === overId);
 
-      if (!task || !columnId || position < 1) {
-        drake.cancel(true);
+    if (oldIndex < 0 || newIndex < 0) {
+      return;
+    }
+
+    const nextColumns = arrayMove(columns, oldIndex, newIndex);
+    onReorderColumns(nextColumns.map((column, index) => ({ id: column.id, position: index + 1 })));
+  }
+
+  function reorderTasks(activeId: string, overId: string) {
+    const activeTaskId = getNumericId(activeId);
+    const sourceColumn = findTaskColumn(columns, activeTaskId);
+    const targetColumn = overId.startsWith("task-")
+      ? findTaskColumn(columns, getNumericId(overId))
+      : columns.find((column) => getItemId("column", column.id) === overId);
+
+    if (!sourceColumn || !targetColumn) {
+      return;
+    }
+
+    const sourceTasks = sourceColumn.tasks ?? [];
+
+    if (sourceColumn.id === targetColumn.id && overId.startsWith("task-")) {
+      const oldIndex = sourceTasks.findIndex((task) => task.id === activeTaskId);
+      const newIndex = sourceTasks.findIndex((task) => task.id === getNumericId(overId));
+
+      if (oldIndex < 0 || newIndex < 0) {
         return;
       }
 
-      onMoveTask(task, columnId, position);
-    });
-
-    return () => drake.destroy();
-  }, [columns, isLoading, onMoveTask, taskById]);
-
-  useEffect(() => {
-    if (isLoading || columns.length === 0 || !columnsContainerRef.current) {
+      const nextColumns = columns.map((column) =>
+        column.id === sourceColumn.id ? { ...column, tasks: arrayMove(sourceTasks, oldIndex, newIndex) } : column,
+      );
+      onReorderTasks(toTaskOrder(nextColumns));
       return;
     }
 
-    // Column Dragula instance: the whole column moves unless the drag starts on a task or button.
-    const drake: Drake = dragula([columnsContainerRef.current], {
-      direction: "horizontal",
-      revertOnSpill: true,
-      moves: (element, _source, handle) => {
-        return Boolean(
-          element?.hasAttribute("data-column-card-id") &&
-            !handle?.closest(interactiveSelector) &&
-            !handle?.closest("[data-task-id]"),
-        );
-      },
-    });
+    const activeTask = sourceTasks.find((task) => task.id === activeTaskId);
 
-    drake.on("drop", (_element, target) => {
-      // DOM order after drop becomes the saved column position.
-      const orderedColumns = Array.from(target?.querySelectorAll<HTMLElement>("[data-column-card-id]") ?? [])
-        .map((columnElement, index) => {
-          const column = columnById.get(Number(columnElement.dataset.columnCardId));
-          return column ? { ...column, position: index + 1 } : null;
-        })
-        .filter((column): column is BoardColumn => Boolean(column));
+    if (!activeTask) {
+      return;
+    }
 
-      if (orderedColumns.length !== columns.length) {
-        drake.cancel(true);
-        return;
+    if (sourceColumn.id === targetColumn.id) {
+      const withoutActiveTask = sourceTasks.filter((task) => task.id !== activeTaskId);
+      const nextColumns = columns.map((column) =>
+        column.id === sourceColumn.id ? { ...column, tasks: [...withoutActiveTask, activeTask] } : column,
+      );
+      onReorderTasks(toTaskOrder(nextColumns));
+      return;
+    }
+
+    const nextColumns = columns.map((column) => {
+      if (column.id === sourceColumn.id) {
+        return { ...column, tasks: (column.tasks ?? []).filter((task) => task.id !== activeTaskId) };
       }
 
-      onReorderColumns(orderedColumns);
+      if (column.id === targetColumn.id) {
+        const nextTasks = [...(column.tasks ?? [])];
+        const targetIndex = overId.startsWith("task-")
+          ? nextTasks.findIndex((task) => task.id === getNumericId(overId))
+          : nextTasks.length;
+        nextTasks.splice(targetIndex < 0 ? nextTasks.length : targetIndex, 0, {
+          ...activeTask,
+          columnId: targetColumn.id,
+        });
+        return { ...column, tasks: nextTasks };
+      }
+
+      return column;
     });
 
-    return () => drake.destroy();
-  }, [columnById, columns, isLoading, onReorderColumns]);
-
-  function setContainerRef(columnId: number) {
-    return (node: HTMLDivElement | null) => {
-      if (node) {
-        containerRefs.current.set(columnId, node);
-      } else {
-        containerRefs.current.delete(columnId);
-      }
-    };
+    onReorderTasks(toTaskOrder(nextColumns));
   }
 
   return (
-    <section ref={columnsContainerRef} className="grid gap-4 lg:grid-cols-4">
-      {columns.map((column) => (
-        <KanbanColumn
-          key={column.id}
-          column={column}
-          isLoading={isLoading}
-          taskDropRef={setContainerRef(column.id)}
-          onDeleteColumn={onDeleteColumn}
-          onDeleteTask={onDeleteTask}
-          onEditColumn={onEditColumn}
-          onEditTask={onEditTask}
-        />
-      ))}
-      {!isLoading && columns.length === 0 ? (
-        <Card className="p-6 text-center text-sm text-muted-foreground lg:col-span-4">
-          Add a column to start organizing tasks.
-        </Card>
-      ) : null}
-    </section>
+    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+      <div className="overflow-x-auto pb-3">
+        <SortableContext items={columns.map((column) => getItemId("column", column.id))} strategy={horizontalListSortingStrategy}>
+          <section className="flex min-w-max gap-4">
+            {columns.map((column) => (
+              <KanbanColumn
+                key={column.id}
+                column={column}
+                isLoading={isLoading}
+                onDeleteColumn={onDeleteColumn}
+                onDeleteTask={onDeleteTask}
+                onEditColumn={onEditColumn}
+                onEditTask={onEditTask}
+              />
+            ))}
+            {!isLoading && columns.length === 0 ? (
+              <Card className="w-full min-w-[20rem] p-6 text-center text-sm text-muted-foreground">
+                Add a column to start organizing tasks.
+              </Card>
+            ) : null}
+          </section>
+        </SortableContext>
+      </div>
+    </DndContext>
+  );
+}
+
+function findTaskColumn(columns: BoardColumn[], taskId: number) {
+  return columns.find((column) => (column.tasks ?? []).some((task) => task.id === taskId));
+}
+
+function getItemId(type: "column" | "task", id: number) {
+  return `${type}-${id}`;
+}
+
+function getNumericId(id: string) {
+  return Number(id.split("-")[1]);
+}
+
+function toTaskOrder(columns: BoardColumn[]): ReorderTaskInput[] {
+  return columns.flatMap((column) =>
+    (column.tasks ?? []).map((task, index) => ({
+      id: task.id,
+      columnId: column.id,
+      position: index + 1,
+    })),
   );
 }

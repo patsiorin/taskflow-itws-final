@@ -28,6 +28,15 @@ export class ColumnsRepository {
     });
   }
 
+  countForBoard(boardId: number, ids: number[]) {
+    return this.prisma.boardColumn.count({
+      where: {
+        boardId,
+        id: { in: ids },
+      },
+    });
+  }
+
   create(data: Prisma.BoardColumnUncheckedCreateInput) {
     return this.prisma.boardColumn.create({ data });
   }
@@ -39,10 +48,20 @@ export class ColumnsRepository {
     });
   }
 
+  reorder(items: Array<{ id: number; position: number }>) {
+    return this.prisma.$transaction(
+      items.map((item) =>
+        this.prisma.boardColumn.update({
+          where: { id: item.id },
+          data: { position: item.position },
+        }),
+      ),
+    );
+  }
+
   delete(id: number) {
     return this.prisma.boardColumn.delete({
       where: { id },
     });
   }
 }
-

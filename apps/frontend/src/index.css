@@ -73,14 +73,6 @@ select {
   touch-action: none;
 }
 
-.column-card {
-  cursor: grab;
-}
-
-.column-card:active {
-  cursor: grabbing;
-}
-
 .task-card {
   cursor: grab;
 }
@@ -107,15 +99,4 @@ select {
 
 .column-card .task-card {
   cursor: grab;
-}
-
-.gu-mirror {
-  cursor: grabbing;
-  opacity: 0.95;
-  rotate: 1deg;
-  box-shadow: 0 18px 40px rgb(15 23 42 / 0.18);
-}
-
-.gu-transit {
-  opacity: 0.45;
 }

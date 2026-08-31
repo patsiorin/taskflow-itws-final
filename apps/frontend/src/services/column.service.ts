@@ -1,6 +1,6 @@
 import { endpoints } from '@/api/endpoints';
 import { httpClient } from '@/api/httpClient';
-import type { BoardColumn, CreateColumnInput, UpdateColumnInput } from '@/types/board';
+import type { BoardColumn, CreateColumnInput, ReorderColumnInput, UpdateColumnInput } from '@/types/board';
 
 export class ColumnService {
   static getColumns(boardId?: number) {
@@ -25,10 +25,16 @@ export class ColumnService {
     });
   }
 
+  static reorderColumns(boardId: number, columns: ReorderColumnInput[]) {
+    return httpClient<BoardColumn[]>(endpoints.columnsReorder, {
+      method: 'PATCH',
+      body: { boardId, columns },
+    });
+  }
+
   static deleteColumn(id: number) {
     return httpClient<BoardColumn>(endpoints.columnById(id), {
       method: 'DELETE',
     });
   }
 }
-

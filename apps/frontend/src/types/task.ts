@@ -24,3 +24,9 @@ export type CreateTaskInput = {
 };
 
 export type UpdateTaskInput = Partial<CreateTaskInput>;
+
+export type ReorderTaskInput = {
+  id: number;
+  columnId: number;
+  position: number;
+};

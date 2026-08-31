@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { CreateTaskDto } from '../dto/create-task.dto';
+import { ReorderTasksDto } from '../dto/reorder-tasks.dto';
 import { UpdateTaskDto } from '../dto/update-task.dto';
 import { TasksRepository } from '../infrastructure/tasks.repository';
 
@@ -47,6 +48,25 @@ export class TasksService {
   async remove(id: number) {
     await this.findOne(id);
     return this.tasksRepository.delete(id);
+  }
+
+  async reorder(data: ReorderTasksDto) {
+    await this.ensureBoardExists(data.boardId);
+
+    const taskIds = data.tasks.map((task) => task.id);
+    const columnIds = [...new Set(data.tasks.map((task) => task.columnId))];
+    const matchingTasksCount = await this.tasksRepository.countForBoard(data.boardId, taskIds);
+    const matchingColumnsCount = await this.tasksRepository.countColumnsForBoard(data.boardId, columnIds);
+
+    if (matchingTasksCount !== taskIds.length) {
+      throw new NotFoundException('Task not found for board');
+    }
+
+    if (matchingColumnsCount !== columnIds.length) {
+      throw new NotFoundException('Column not found for board');
+    }
+
+    return this.tasksRepository.reorder(data.tasks);
   }
 
   private toCreateRepositoryData(data: CreateTaskDto): Prisma.TaskUncheckedCreateInput {

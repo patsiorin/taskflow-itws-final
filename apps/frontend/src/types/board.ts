@@ -38,6 +38,11 @@ export type CreateBoardInput = {
 
 export type UpdateBoardInput = Partial<CreateBoardInput>;
 
+export type ReorderBoardInput = {
+  id: number;
+  position: number;
+};
+
 export type CreateColumnInput = {
   boardId: number;
   name: string;
@@ -45,3 +50,8 @@ export type CreateColumnInput = {
 };
 
 export type UpdateColumnInput = Partial<CreateColumnInput>;
+
+export type ReorderColumnInput = {
+  id: number;
+  position: number;
+};

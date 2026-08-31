@@ -1,6 +1,6 @@
 import { endpoints } from '@/api/endpoints';
 import { httpClient } from '@/api/httpClient';
-import type { Board, CreateBoardInput, UpdateBoardInput } from '@/types/board';
+import type { Board, CreateBoardInput, ReorderBoardInput, UpdateBoardInput } from '@/types/board';
 
 export class BoardService {
   static getBoards() {
@@ -25,10 +25,16 @@ export class BoardService {
     });
   }
 
+  static reorderBoards(boards: ReorderBoardInput[]) {
+    return httpClient<Board[]>(endpoints.boardsReorder, {
+      method: 'PATCH',
+      body: { boards },
+    });
+  }
+
   static deleteBoard(id: number) {
     return httpClient<Board>(endpoints.boardById(id), {
       method: 'DELETE',
     });
   }
 }
-

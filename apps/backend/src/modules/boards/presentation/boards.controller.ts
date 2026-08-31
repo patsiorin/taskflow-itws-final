@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
 import { BoardsService } from '../application/boards.service';
 import { CreateBoardDto } from '../dto/create-board.dto';
+import { ReorderBoardsDto } from '../dto/reorder-boards.dto';
 import { UpdateBoardDto } from '../dto/update-board.dto';
 
 @Controller('boards')
@@ -22,6 +23,11 @@ export class BoardsController {
     return this.boardsService.create(data);
   }
 
+  @Patch('reorder')
+  reorder(@Body() data: ReorderBoardsDto) {
+    return this.boardsService.reorder(data);
+  }
+
   @Patch(':id')
   update(@Param('id', ParseIntPipe) id: number, @Body() data: UpdateBoardDto) {
     return this.boardsService.update(id, data);
@@ -32,4 +38,3 @@ export class BoardsController {
     return this.boardsService.remove(id);
   }
 }
-

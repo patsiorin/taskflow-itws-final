@@ -16,9 +16,13 @@ export const TableBody = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTML
 
 TableBody.displayName = 'TableBody';
 
-export function TableRow({ className, ...props }: HTMLAttributes<HTMLTableRowElement>) {
-  return <tr className={cn('border-b border-border transition-colors hover:bg-muted/50', className)} {...props} />;
-}
+export const TableRow = forwardRef<HTMLTableRowElement, HTMLAttributes<HTMLTableRowElement>>(
+  ({ className, ...props }, ref) => (
+    <tr ref={ref} className={cn('border-b border-border transition-colors hover:bg-muted/50', className)} {...props} />
+  ),
+);
+
+TableRow.displayName = 'TableRow';
 
 export function TableHead({ className, ...props }: ThHTMLAttributes<HTMLTableCellElement>) {
   return <th className={cn('h-10 px-3 text-left align-middle font-medium text-muted-foreground', className)} {...props} />;

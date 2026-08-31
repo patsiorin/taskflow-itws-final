@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateColumnDto } from '../dto/create-column.dto';
+import { ReorderColumnsDto } from '../dto/reorder-columns.dto';
 import { UpdateColumnDto } from '../dto/update-column.dto';
 import { ColumnsRepository } from '../infrastructure/columns.repository';
 
@@ -36,6 +37,19 @@ export class ColumnsService {
     return this.columnsRepository.update(id, data);
   }
 
+  async reorder(data: ReorderColumnsDto) {
+    await this.ensureBoardExists(data.boardId);
+
+    const columnIds = data.columns.map((column) => column.id);
+    const matchingColumnsCount = await this.columnsRepository.countForBoard(data.boardId, columnIds);
+
+    if (matchingColumnsCount !== columnIds.length) {
+      throw new NotFoundException('Column not found for board');
+    }
+
+    return this.columnsRepository.reorder(data.columns);
+  }
+
   async remove(id: number) {
     await this.findOne(id);
     return this.columnsRepository.delete(id);
@@ -49,4 +63,3 @@ export class ColumnsService {
     }
   }
 }
-

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateBoardDto } from '../dto/create-board.dto';
+import { ReorderBoardsDto } from '../dto/reorder-boards.dto';
 import { UpdateBoardDto } from '../dto/update-board.dto';
 import { BoardsRepository } from '../infrastructure/boards.repository';
 
@@ -33,6 +34,10 @@ export class BoardsService {
   async update(id: number, data: UpdateBoardDto) {
     await this.findOne(id);
     return this.boardsRepository.update(id, data);
+  }
+
+  reorder(data: ReorderBoardsDto) {
+    return this.boardsRepository.reorder(data.boards);
   }
 
   async remove(id: number) {

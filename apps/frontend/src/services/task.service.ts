@@ -1,6 +1,6 @@
 import { endpoints } from '@/api/endpoints';
 import { httpClient } from '@/api/httpClient';
-import type { CreateTaskInput, Task, UpdateTaskInput } from '@/types/task';
+import type { CreateTaskInput, ReorderTaskInput, Task, UpdateTaskInput } from '@/types/task';
 
 export class TaskService {
   static getTasks(boardId?: number) {
@@ -25,10 +25,16 @@ export class TaskService {
     });
   }
 
+  static reorderTasks(boardId: number, tasks: ReorderTaskInput[]) {
+    return httpClient<Task[]>(endpoints.tasksReorder, {
+      method: 'PATCH',
+      body: { boardId, tasks },
+    });
+  }
+
   static deleteTask(id: number) {
     return httpClient<Task>(endpoints.taskById(id), {
       method: 'DELETE',
     });
   }
 }
-

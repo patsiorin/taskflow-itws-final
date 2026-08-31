@@ -1,3 +1,5 @@
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { CalendarDays, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,8 +31,25 @@ function formatDueDate(value: string | null) {
 }
 
 export function TaskCard({ task, onDelete, onEdit }: TaskCardProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: `task-${task.id}`,
+    data: { type: "task", task },
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.55 : undefined,
+  };
+
   return (
-    <Card className="task-card p-4" data-task-id={task.id}>
+    <Card
+      ref={setNodeRef}
+      className="task-card p-4"
+      data-task-id={task.id}
+      style={style}
+      {...attributes}
+      {...listeners}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2">
           <h3 className="text-sm font-semibold leading-5">{task.title}</h3>
@@ -51,7 +70,7 @@ export function TaskCard({ task, onDelete, onEdit }: TaskCardProps) {
           {formatDueDate(task.dueDate)}
         </div>
 
-        <div className="flex gap-1">
+        <div className="flex gap-1" onPointerDown={(event) => event.stopPropagation()}>
           <Tooltip content="Edit task">
             <Button size="icon" variant="ghost" onClick={() => onEdit(task)}>
               <Pencil className="h-4 w-4" />

@@ -20,7 +20,7 @@ apps/backend
   src/shared/prisma               Shared Prisma client
 
 database
-  dump.sql        PostgreSQL schema for submission
+  dump.sql        PostgreSQL schema and sample data for submission
 ```
 
 ## Exam Requirements Covered
@@ -42,18 +42,21 @@ The backend uses the `/api` global prefix.
 | Boards | GET | `/api/boards` | List boards |
 | Boards | GET | `/api/boards/:id` | Get one board with columns and tasks |
 | Boards | POST | `/api/boards` | Create board |
+| Boards | PATCH | `/api/boards/reorder` | Save board order |
 | Boards | PATCH | `/api/boards/:id` | Update board |
 | Boards | DELETE | `/api/boards/:id` | Delete board |
 | Columns | GET | `/api/columns` | List columns |
 | Columns | GET | `/api/columns?boardId=1` | List columns for one board |
 | Columns | GET | `/api/columns/:id` | Get one column |
 | Columns | POST | `/api/columns` | Create column |
+| Columns | PATCH | `/api/columns/reorder` | Save column order for a board |
 | Columns | PATCH | `/api/columns/:id` | Update column |
 | Columns | DELETE | `/api/columns/:id` | Delete column |
 | Tasks | GET | `/api/tasks` | List tasks |
 | Tasks | GET | `/api/tasks?boardId=1` | List tasks for one board |
 | Tasks | GET | `/api/tasks/:id` | Get one task |
 | Tasks | POST | `/api/tasks` | Create task |
+| Tasks | PATCH | `/api/tasks/reorder` | Save task order across columns |
 | Tasks | PATCH | `/api/tasks/:id` | Update task |
 | Tasks | DELETE | `/api/tasks/:id` | Delete task |
 

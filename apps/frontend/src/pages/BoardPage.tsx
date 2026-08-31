@@ -1,40 +1,31 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { KanbanBoard } from '@/components/kanban/KanbanBoard';
+import { ColumnDialog } from '@/components/kanban/ColumnDialog';
+import { KanbanDeleteDialog, type KanbanDeleteTarget } from '@/components/kanban/KanbanDeleteDialog';
+import { TaskDialog } from '@/components/kanban/TaskDialog';
 import { Alert } from '@/components/ui/alert';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ConfirmDialog, Dialog, DialogActions } from '@/components/ui/dialog';
-import { Form } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Spinner } from '@/components/ui/spinner';
 import { toast } from '@/components/ui/sonner';
-import { Textarea } from '@/components/ui/textarea';
 import { BoardService } from '@/services/board.service';
 import { ColumnService } from '@/services/column.service';
 import { TaskService } from '@/services/task.service';
-import type { Board, BoardColumn } from '@/types/board';
-import type { Task, TaskPriority } from '@/types/task';
+import type { Board, BoardColumn, ReorderColumnInput } from '@/types/board';
+import type { ReorderTaskInput, Task, TaskPriority } from '@/types/task';
 
 type BoardPageProps = {
   boardId: number;
   navigate: (to: string) => void;
 };
 
-type DeleteTarget =
-  | { kind: 'column'; item: BoardColumn }
-  | { kind: 'task'; item: Task }
-  | null;
-
 export function BoardPage({ boardId, navigate }: BoardPageProps) {
   const [activeBoard, setActiveBoard] = useState<Board | null>(null);
   const [editingColumn, setEditingColumn] = useState<BoardColumn | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
+  const [deleteTarget, setDeleteTarget] = useState<KanbanDeleteTarget>(null);
   const [isColumnDialogOpen, setIsColumnDialogOpen] = useState(false);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [columnName, setColumnName] = useState('');
@@ -185,26 +176,60 @@ export function BoardPage({ boardId, navigate }: BoardPageProps) {
     }
   }
 
-  async function handleMoveTask(task: Task, columnId: number, position: number) {
+  async function handleReorderTasks(nextTasks: ReorderTaskInput[]) {
+    setActiveBoard((board) => {
+      if (!board?.columns) {
+        return board;
+      }
+
+      const existingTasks = new Map(board.columns.flatMap((column) => column.tasks ?? []).map((task) => [task.id, task]));
+
+      return {
+        ...board,
+        columns: board.columns.map((column) => ({
+          ...column,
+          tasks: nextTasks
+            .filter((task) => task.columnId === column.id)
+            .map((task) => {
+              const existingTask = existingTasks.get(task.id);
+              return existingTask ? { ...existingTask, columnId: task.columnId, position: task.position } : null;
+            })
+            .filter((task): task is Task => Boolean(task)),
+        })),
+      };
+    });
+
     try {
       setError(null);
-      await TaskService.updateTask(task.id, { columnId, position });
-      toast.success('Task moved.');
-      await loadBoard();
+      await TaskService.reorderTasks(boardId, nextTasks);
+      toast.success('Task order saved.');
     } catch {
-      setError('Unable to move task.');
-      toast.error('Unable to move task.');
+      setError('Unable to save task order.');
+      toast.error('Unable to save task order.');
+      await loadBoard();
     }
   }
 
-  async function handleReorderColumns(nextColumns: BoardColumn[]) {
-    setActiveBoard((board) => (board ? { ...board, columns: nextColumns } : board));
+  async function handleReorderColumns(nextColumns: ReorderColumnInput[]) {
+    setActiveBoard((board) => {
+      if (!board?.columns) {
+        return board;
+      }
+
+      const positionByColumnId = new Map(nextColumns.map((column) => [column.id, column.position]));
+      const orderedColumns = [...board.columns]
+        .map((column) => ({
+          ...column,
+          position: positionByColumnId.get(column.id) ?? column.position,
+        }))
+        .sort((left, right) => left.position - right.position);
+
+      return { ...board, columns: orderedColumns };
+    });
 
     try {
       setError(null);
-      await Promise.all(
-        nextColumns.map((column) => ColumnService.updateColumn(column.id, { position: column.position })),
-      );
+      await ColumnService.reorderColumns(boardId, nextColumns);
       toast.success('Column order saved.');
     } catch {
       setError('Unable to save column order.');
@@ -292,122 +317,44 @@ export function BoardPage({ boardId, navigate }: BoardPageProps) {
                 onDeleteTask={(task) => setDeleteTarget({ kind: 'task', item: task })}
                 onEditColumn={startEditColumn}
                 onEditTask={startEditTask}
-                onMoveTask={handleMoveTask}
                 onReorderColumns={handleReorderColumns}
+                onReorderTasks={handleReorderTasks}
               />
             )}
           </CardContent>
         </Card>
       </div>
 
-      <Dialog
+      <ColumnDialog
+        isEditing={Boolean(editingColumn)}
         isOpen={isColumnDialogOpen}
-        title={editingColumn ? 'Edit column' : 'Create column'}
-        description="Columns define the stages inside a board."
+        isSaving={isSaving}
+        name={columnName}
+        position={columnPosition}
         onClose={() => setIsColumnDialogOpen(false)}
-      >
-        <Form onSubmit={handleSaveColumn}>
-          <div className="grid gap-2">
-            <Label htmlFor="column-name">Name</Label>
-            <Input id="column-name" value={columnName} onChange={(event) => setColumnName(event.target.value)} required />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="column-position">Position</Label>
-            <Input
-              id="column-position"
-              min={0}
-              type="number"
-              value={columnPosition}
-              onChange={(event) => setColumnPosition(Number(event.target.value))}
-            />
-          </div>
-          <DialogActions>
-            <Button type="button" variant="outline" onClick={() => setIsColumnDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSaving}>
-              {isSaving ? <Spinner className="mr-2" /> : null}
-              {editingColumn ? 'Save' : 'Create'}
-            </Button>
-          </DialogActions>
-        </Form>
-      </Dialog>
-
-      <Dialog
-        isOpen={isTaskDialogOpen}
-        title={editingTask ? 'Edit task' : 'Create task'}
-        description="Tasks are cards inside board columns."
-        onClose={() => setIsTaskDialogOpen(false)}
-      >
-        <Form onSubmit={handleSaveTask}>
-          <div className="grid gap-2">
-            <Label htmlFor="task-title">Title</Label>
-            <Input id="task-title" value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} required />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="task-description">Description</Label>
-            <Textarea
-              id="task-description"
-              value={taskDescription}
-              onChange={(event) => setTaskDescription(event.target.value)}
-            />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="grid gap-2">
-              <Label htmlFor="task-column">Column</Label>
-              <Select
-                value={taskColumnId ? String(taskColumnId) : undefined}
-                onValueChange={(value) => setTaskColumnId(Number(value))}
-              >
-                <SelectTrigger id="task-column">
-                  <SelectValue placeholder="Select column" />
-                </SelectTrigger>
-                <SelectContent>
-                  {columns.map((column) => (
-                    <SelectItem key={column.id} value={String(column.id)}>
-                      {column.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="task-priority">Priority</Label>
-              <Select value={taskPriority} onValueChange={(value) => setTaskPriority(value as TaskPriority)}>
-                <SelectTrigger id="task-priority">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="LOW">Low</SelectItem>
-                  <SelectItem value="MEDIUM">Medium</SelectItem>
-                  <SelectItem value="HIGH">High</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogActions>
-            <Button type="button" variant="outline" onClick={() => setIsTaskDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSaving}>
-              {isSaving ? <Spinner className="mr-2" /> : null}
-              {editingTask ? 'Save' : 'Create'}
-            </Button>
-          </DialogActions>
-        </Form>
-      </Dialog>
-
-      <ConfirmDialog
-        isOpen={Boolean(deleteTarget)}
-        title={deleteTarget?.kind === 'column' ? 'Delete column?' : 'Delete task?'}
-        body={
-          deleteTarget?.kind === 'column'
-            ? `This will delete "${deleteTarget.item.name}" and all tasks inside it.`
-            : `This will delete "${deleteTarget?.item.title ?? 'this task'}".`
-        }
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={confirmDelete}
+        onNameChange={setColumnName}
+        onPositionChange={setColumnPosition}
+        onSubmit={handleSaveColumn}
       />
+
+      <TaskDialog
+        columnId={taskColumnId}
+        columns={columns}
+        description={taskDescription}
+        isEditing={Boolean(editingTask)}
+        isOpen={isTaskDialogOpen}
+        isSaving={isSaving}
+        priority={taskPriority}
+        title={taskTitle}
+        onClose={() => setIsTaskDialogOpen(false)}
+        onColumnChange={setTaskColumnId}
+        onDescriptionChange={setTaskDescription}
+        onPriorityChange={setTaskPriority}
+        onSubmit={handleSaveTask}
+        onTitleChange={setTaskTitle}
+      />
+
+      <KanbanDeleteDialog target={deleteTarget} onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete} />
     </main>
   );
 }

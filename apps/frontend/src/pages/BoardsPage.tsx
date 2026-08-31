@@ -1,22 +1,19 @@
-import { FormEvent, useEffect, useRef, useState } from 'react';
-import dragula from 'dragula';
-import type { Drake } from 'dragula';
-import { ArrowRight, GripVertical, Pencil, Plus, Trash2 } from 'lucide-react';
+import { FormEvent, useEffect, useState } from 'react';
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { Plus } from 'lucide-react';
+import { BoardDeleteDialog } from '@/components/boards/BoardDeleteDialog';
+import { BoardDialog } from '@/components/boards/BoardDialog';
+import { BoardRow } from '@/components/boards/BoardRow';
 import { Alert } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ConfirmDialog, Dialog, DialogActions } from '@/components/ui/dialog';
-import { Form } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Spinner } from '@/components/ui/spinner';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from '@/components/ui/sonner';
-import { Tooltip } from '@/components/ui/tooltip';
 import { BoardService } from '@/services/board.service';
-import type { Board } from '@/types/board';
+import type { Board, ReorderBoardInput } from '@/types/board';
 
 type BoardsPageProps = {
   navigate: (to: string) => void;
@@ -33,31 +30,11 @@ export function BoardsPage({ navigate }: BoardsPageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const tableBodyRef = useRef<HTMLTableSectionElement | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   useEffect(() => {
     loadBoards();
   }, []);
-
-  useEffect(() => {
-    if (isLoading || boards.length === 0 || !tableBodyRef.current) {
-      return;
-    }
-
-    const drake: Drake = dragula([tableBodyRef.current], {
-      direction: 'vertical',
-      revertOnSpill: true,
-      moves: (element, _source, handle) => {
-        return Boolean(element?.hasAttribute('data-board-id') && handle?.closest('[data-drag-handle="board"]'));
-      },
-    });
-
-    drake.on('drop', (_element, target) => {
-      void saveBoardOrder(target);
-    });
-
-    return () => drake.destroy();
-  }, [boards, isLoading]);
 
   async function loadBoards() {
     try {
@@ -135,33 +112,46 @@ export function BoardsPage({ navigate }: BoardsPageProps) {
     }
   }
 
-  async function saveBoardOrder(target: Element | null) {
-    const orderedIds = Array.from(target?.querySelectorAll<HTMLElement>('[data-board-id]') ?? [])
-      .map((row) => Number(row.dataset.boardId))
-      .filter(Boolean);
-
-    if (orderedIds.length === 0) {
-      return;
-    }
-
-    const nextBoards = orderedIds
-      .map((id, index) => {
-        const board = boards.find((item) => item.id === id);
-        return board ? { ...board, position: index + 1 } : null;
-      })
-      .filter((board): board is Board => Boolean(board));
+  async function saveBoardOrder(nextOrder: ReorderBoardInput[]) {
+    const positionByBoardId = new Map(nextOrder.map((board) => [board.id, board.position]));
+    const nextBoards = [...boards]
+      .map((board) => ({
+        ...board,
+        position: positionByBoardId.get(board.id) ?? board.position,
+      }))
+      .sort((left, right) => left.position - right.position);
 
     setBoards(nextBoards);
 
     try {
       setError(null);
-      await Promise.all(nextBoards.map((board) => BoardService.updateBoard(board.id, { position: board.position })));
+      await BoardService.reorderBoards(nextOrder);
       toast.success('Board order saved.');
     } catch {
       setError('Unable to save board order.');
       toast.error('Unable to save board order.');
       await loadBoards();
     }
+  }
+
+  function handleBoardDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const activeId = getNumericId(active.id, 'board-');
+    const overId = getNumericId(over.id, 'board-');
+    const oldIndex = boards.findIndex((board) => board.id === activeId);
+    const newIndex = boards.findIndex((board) => board.id === overId);
+
+    if (oldIndex < 0 || newIndex < 0) {
+      return;
+    }
+
+    const nextBoards = arrayMove(boards, oldIndex, newIndex);
+    void saveBoardOrder(nextBoards.map((board, index) => ({ id: board.id, position: index + 1 })));
   }
 
   return (
@@ -198,116 +188,61 @@ export function BoardsPage({ navigate }: BoardsPageProps) {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12" />
-                      <TableHead>Board</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Columns</TableHead>
-                      <TableHead>Tasks</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody ref={tableBodyRef}>
-                    {boards.map((board) => (
-                      <TableRow key={board.id} data-board-id={board.id} className="board-row">
-                        <TableCell>
-                          <button
-                            type="button"
-                            className="cursor-grab rounded border border-transparent p-1 text-muted-foreground hover:border-border hover:bg-muted active:cursor-grabbing"
-                            data-drag-handle="board"
-                            aria-label={`Move ${board.name}`}
-                          >
-                            <GripVertical className="h-4 w-4" />
-                          </button>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2 font-medium">
-                            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: board.color }} />
-                            {board.name}
-                          </div>
-                        </TableCell>
-                        <TableCell className="max-w-[340px] text-muted-foreground">
-                          {board.description ?? 'No description'}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="warning">{board._count?.columns ?? 0}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="success">{board._count?.tasks ?? 0}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-2">
-                            <Tooltip content="Edit board">
-                              <Button size="icon" variant="outline" onClick={() => openEditForm(board)}>
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                            </Tooltip>
-                            <Tooltip content="Delete board">
-                              <Button size="icon" variant="outline" onClick={() => setDeletingBoard(board)}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </Tooltip>
-                            <Tooltip content="Open board">
-                              <Button size="icon" onClick={() => navigate(`/boards/${board.id}`)}>
-                                <ArrowRight className="h-4 w-4" />
-                              </Button>
-                            </Tooltip>
-                          </div>
-                        </TableCell>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleBoardDragEnd}>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12" />
+                        <TableHead>Board</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Columns</TableHead>
+                        <TableHead>Tasks</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <SortableContext
+                      items={boards.map((board) => `board-${board.id}`)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <TableBody>
+                        {boards.map((board) => (
+                          <BoardRow
+                            key={board.id}
+                            board={board}
+                            onDelete={setDeletingBoard}
+                            onEdit={openEditForm}
+                            onOpen={(selectedBoard) => navigate(`/boards/${selectedBoard.id}`)}
+                          />
+                        ))}
+                      </TableBody>
+                    </SortableContext>
+                  </Table>
+                </DndContext>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
 
-      <Dialog
+      <BoardDialog
+        color={color}
+        description={description}
+        isEditing={Boolean(editingBoard)}
         isOpen={isFormOpen}
-        title={editingBoard ? 'Edit board' : 'Create board'}
-        description="Boards represent projects or workspaces."
+        isSaving={isSaving}
+        name={name}
         onClose={() => setIsFormOpen(false)}
-      >
-        <Form onSubmit={handleSubmit}>
-          <div className="grid gap-2">
-            <Label htmlFor="board-name">Name</Label>
-            <Input id="board-name" value={name} onChange={(event) => setName(event.target.value)} required />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="board-description">Description</Label>
-            <Input
-              id="board-description"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="board-color">Color</Label>
-            <Input id="board-color" type="color" value={color} onChange={(event) => setColor(event.target.value)} />
-          </div>
-          <DialogActions>
-            <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSaving}>
-              {isSaving ? <Spinner className="mr-2" /> : null}
-              {editingBoard ? 'Save' : 'Create'}
-            </Button>
-          </DialogActions>
-        </Form>
-      </Dialog>
-
-      <ConfirmDialog
-        isOpen={Boolean(deletingBoard)}
-        title="Delete board?"
-        body={`This will delete "${deletingBoard?.name ?? 'this board'}" and all of its columns and tasks.`}
-        onCancel={() => setDeletingBoard(null)}
-        onConfirm={confirmDelete}
+        onColorChange={setColor}
+        onDescriptionChange={setDescription}
+        onNameChange={setName}
+        onSubmit={handleSubmit}
       />
+
+      <BoardDeleteDialog board={deletingBoard} onCancel={() => setDeletingBoard(null)} onConfirm={confirmDelete} />
     </main>
   );
+}
+
+function getNumericId(id: string | number, prefix: string) {
+  return Number(String(id).replace(prefix, ''));
 }

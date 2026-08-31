@@ -1,3 +1,5 @@
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,7 +12,6 @@ import { TaskCard } from "./TaskCard";
 type KanbanColumnProps = {
   column: BoardColumn;
   isLoading: boolean;
-  taskDropRef: (node: HTMLDivElement | null) => void;
   onDeleteColumn: (column: BoardColumn) => void;
   onDeleteTask: (task: Task) => void;
   onEditColumn: (column: BoardColumn) => void;
@@ -20,25 +21,39 @@ type KanbanColumnProps = {
 export function KanbanColumn({
   column,
   isLoading,
-  taskDropRef,
   onDeleteColumn,
   onDeleteTask,
   onEditColumn,
   onEditTask,
 }: KanbanColumnProps) {
   const columnTasks = column.tasks ?? [];
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: `column-${column.id}`,
+    data: { type: "column", column },
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.55 : undefined,
+  };
 
   return (
     <div
-      className="column-card flex min-h-[420px] flex-col rounded-lg border border-border bg-muted/40"
+      ref={setNodeRef}
+      className="column-card flex min-h-[420px] w-[min(22rem,calc(100vw-3rem))] flex-none flex-col rounded-lg border border-border bg-muted/40"
       data-column-card-id={column.id}
+      style={style}
     >
-      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+      <div
+        className="column-drag-handle flex cursor-grab items-center justify-between gap-3 border-b border-border px-4 py-3 active:cursor-grabbing"
+        {...attributes}
+        {...listeners}
+      >
         <div className="flex min-w-0 items-center gap-2">
           <h2 className="truncate text-sm font-semibold">{column.name}</h2>
           <Badge>{columnTasks.length}</Badge>
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1" onPointerDown={(event) => event.stopPropagation()}>
           <Tooltip content="Edit column">
             <Button size="icon" variant="ghost" onClick={() => onEditColumn(column)}>
               <Pencil className="h-4 w-4" />
@@ -52,11 +67,7 @@ export function KanbanColumn({
         </div>
       </div>
 
-      <div
-        ref={taskDropRef}
-        className="task-drop-zone flex flex-1 flex-col gap-3 p-3"
-        data-column-id={column.id}
-      >
+      <div className="task-drop-zone flex flex-1 flex-col gap-3 p-3" data-column-id={column.id}>
         {isLoading ? (
           <Card className="p-4">
             <div className="h-4 w-2/3 rounded bg-muted" />
@@ -71,11 +82,13 @@ export function KanbanColumn({
           </div>
         ) : null}
 
-        {!isLoading
-          ? columnTasks.map((task) => (
-              <TaskCard key={task.id} task={task} onDelete={onDeleteTask} onEdit={onEditTask} />
-            ))
-          : null}
+        <SortableContext items={columnTasks.map((task) => `task-${task.id}`)} strategy={verticalListSortingStrategy}>
+          {!isLoading
+            ? columnTasks.map((task) => (
+                <TaskCard key={task.id} task={task} onDelete={onDeleteTask} onEdit={onEditTask} />
+              ))
+            : null}
+        </SortableContext>
       </div>
     </div>
   );

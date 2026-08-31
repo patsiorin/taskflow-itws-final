@@ -36,6 +36,17 @@ export class BoardsRepository {
     });
   }
 
+  reorder(items: Array<{ id: number; position: number }>) {
+    return this.prisma.$transaction(
+      items.map((item) =>
+        this.prisma.board.update({
+          where: { id: item.id },
+          data: { position: item.position },
+        }),
+      ),
+    );
+  }
+
   delete(id: number) {
     return this.prisma.board.delete({
       where: { id },

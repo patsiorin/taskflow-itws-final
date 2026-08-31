@@ -35,6 +35,24 @@ export class TasksRepository {
     });
   }
 
+  countForBoard(boardId: number, ids: number[]) {
+    return this.prisma.task.count({
+      where: {
+        boardId,
+        id: { in: ids },
+      },
+    });
+  }
+
+  countColumnsForBoard(boardId: number, ids: number[]) {
+    return this.prisma.boardColumn.count({
+      where: {
+        boardId,
+        id: { in: ids },
+      },
+    });
+  }
+
   create(data: Prisma.TaskUncheckedCreateInput) {
     return this.prisma.task.create({ data });
   }
@@ -44,6 +62,20 @@ export class TasksRepository {
       where: { id },
       data,
     });
+  }
+
+  reorder(items: Array<{ id: number; columnId: number; position: number }>) {
+    return this.prisma.$transaction(
+      items.map((item) =>
+        this.prisma.task.update({
+          where: { id: item.id },
+          data: {
+            columnId: item.columnId,
+            position: item.position,
+          },
+        }),
+      ),
+    );
   }
 
   delete(id: number) {
