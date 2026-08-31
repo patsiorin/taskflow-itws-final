@@ -28,9 +28,34 @@ database
 - Database has three tables: `boards`, `board_columns`, and `tasks`
 - One-to-many relations: board to columns, board to tasks, column to tasks
 - CRUD is available for boards, columns, and tasks
+- Drag-and-drop ordering is available for boards, columns, and task cards
 - Backend: NestJS
 - Frontend: React, Vite, Tailwind CSS
-- Database dump included in `database/dump.sql`
+- Database dump with schema and sample data included in `database/dump.sql`
+
+## API Endpoints
+
+The backend uses the `/api` global prefix.
+
+| Resource | Method | Endpoint | Purpose |
+| --- | --- | --- | --- |
+| Boards | GET | `/api/boards` | List boards |
+| Boards | GET | `/api/boards/:id` | Get one board with columns and tasks |
+| Boards | POST | `/api/boards` | Create board |
+| Boards | PATCH | `/api/boards/:id` | Update board |
+| Boards | DELETE | `/api/boards/:id` | Delete board |
+| Columns | GET | `/api/columns` | List columns |
+| Columns | GET | `/api/columns?boardId=1` | List columns for one board |
+| Columns | GET | `/api/columns/:id` | Get one column |
+| Columns | POST | `/api/columns` | Create column |
+| Columns | PATCH | `/api/columns/:id` | Update column |
+| Columns | DELETE | `/api/columns/:id` | Delete column |
+| Tasks | GET | `/api/tasks` | List tasks |
+| Tasks | GET | `/api/tasks?boardId=1` | List tasks for one board |
+| Tasks | GET | `/api/tasks/:id` | Get one task |
+| Tasks | POST | `/api/tasks` | Create task |
+| Tasks | PATCH | `/api/tasks/:id` | Update task |
+| Tasks | DELETE | `/api/tasks/:id` | Delete task |
 
 ## Database
 
@@ -55,3 +80,10 @@ Default URLs:
 
 - Frontend: `http://127.0.0.1:5173`
 - Backend: `http://127.0.0.1:3000/api`
+
+## Submission Checklist
+
+- Push this folder as a GitHub repository.
+- Include `database/dump.sql` in the repository.
+- Confirm `npm run build` passes before sending.
+- Send the GitHub repository link to the Teams chat.

@@ -9,7 +9,7 @@ export class BoardsRepository {
   findMany() {
     return this.prisma.board.findMany({
       include: { _count: { select: { columns: true, tasks: true } } },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: [{ position: 'asc' }, { updatedAt: 'desc' }],
     });
   }
 

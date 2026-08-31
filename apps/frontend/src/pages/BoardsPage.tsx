@@ -1,5 +1,7 @@
-import { FormEvent, useEffect, useState } from 'react';
-import { ArrowRight, Pencil, Plus, Trash2 } from 'lucide-react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
+import dragula from 'dragula';
+import type { Drake } from 'dragula';
+import { ArrowRight, GripVertical, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,10 +33,31 @@ export function BoardsPage({ navigate }: BoardsPageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const tableBodyRef = useRef<HTMLTableSectionElement | null>(null);
 
   useEffect(() => {
     loadBoards();
   }, []);
+
+  useEffect(() => {
+    if (isLoading || boards.length === 0 || !tableBodyRef.current) {
+      return;
+    }
+
+    const drake: Drake = dragula([tableBodyRef.current], {
+      direction: 'vertical',
+      revertOnSpill: true,
+      moves: (element, _source, handle) => {
+        return Boolean(element?.hasAttribute('data-board-id') && handle?.closest('[data-drag-handle="board"]'));
+      },
+    });
+
+    drake.on('drop', (_element, target) => {
+      void saveBoardOrder(target);
+    });
+
+    return () => drake.destroy();
+  }, [boards, isLoading]);
 
   async function loadBoards() {
     try {
@@ -80,7 +103,7 @@ export function BoardsPage({ navigate }: BoardsPageProps) {
         await BoardService.updateBoard(editingBoard.id, { name, description, color });
         toast.success('Board updated.');
       } else {
-        await BoardService.createBoard({ name, description, color });
+        await BoardService.createBoard({ name, description, color, position: boards.length + 1 });
         toast.success('Board created.');
       }
 
@@ -109,6 +132,35 @@ export function BoardsPage({ navigate }: BoardsPageProps) {
     } catch {
       setError('Unable to delete board.');
       toast.error('Unable to delete board.');
+    }
+  }
+
+  async function saveBoardOrder(target: Element | null) {
+    const orderedIds = Array.from(target?.querySelectorAll<HTMLElement>('[data-board-id]') ?? [])
+      .map((row) => Number(row.dataset.boardId))
+      .filter(Boolean);
+
+    if (orderedIds.length === 0) {
+      return;
+    }
+
+    const nextBoards = orderedIds
+      .map((id, index) => {
+        const board = boards.find((item) => item.id === id);
+        return board ? { ...board, position: index + 1 } : null;
+      })
+      .filter((board): board is Board => Boolean(board));
+
+    setBoards(nextBoards);
+
+    try {
+      setError(null);
+      await Promise.all(nextBoards.map((board) => BoardService.updateBoard(board.id, { position: board.position })));
+      toast.success('Board order saved.');
+    } catch {
+      setError('Unable to save board order.');
+      toast.error('Unable to save board order.');
+      await loadBoards();
     }
   }
 
@@ -149,6 +201,7 @@ export function BoardsPage({ navigate }: BoardsPageProps) {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12" />
                       <TableHead>Board</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead>Columns</TableHead>
@@ -156,9 +209,19 @@ export function BoardsPage({ navigate }: BoardsPageProps) {
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
+                  <TableBody ref={tableBodyRef}>
                     {boards.map((board) => (
-                      <TableRow key={board.id}>
+                      <TableRow key={board.id} data-board-id={board.id} className="board-row">
+                        <TableCell>
+                          <button
+                            type="button"
+                            className="cursor-grab rounded border border-transparent p-1 text-muted-foreground hover:border-border hover:bg-muted active:cursor-grabbing"
+                            data-drag-handle="board"
+                            aria-label={`Move ${board.name}`}
+                          >
+                            <GripVertical className="h-4 w-4" />
+                          </button>
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2 font-medium">
                             <span className="h-3 w-3 rounded-full" style={{ backgroundColor: board.color }} />

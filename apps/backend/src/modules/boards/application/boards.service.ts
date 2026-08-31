@@ -26,6 +26,7 @@ export class BoardsService {
       name: data.name,
       description: data.description,
       color: data.color,
+      position: data.position,
     });
   }
 
@@ -39,4 +40,3 @@ export class BoardsService {
     return this.boardsRepository.delete(id);
   }
 }
-

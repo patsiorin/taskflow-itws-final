@@ -1,4 +1,4 @@
-import { IsHexColor, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsHexColor, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 
 export class CreateBoardDto {
   @IsString()
@@ -13,5 +13,9 @@ export class CreateBoardDto {
   @IsOptional()
   @IsHexColor()
   color?: string;
-}
 
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  position?: number;
+}

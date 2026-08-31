@@ -62,3 +62,60 @@ textarea,
 select {
   font: inherit;
 }
+
+.task-drop-zone {
+  min-height: 10rem;
+}
+
+.task-card,
+.column-card,
+.board-row {
+  touch-action: none;
+}
+
+.column-card {
+  cursor: grab;
+}
+
+.column-card:active {
+  cursor: grabbing;
+}
+
+.task-card {
+  cursor: grab;
+}
+
+.task-card:active {
+  cursor: grabbing;
+}
+
+.task-card button,
+.task-card a,
+.task-card input,
+.task-card textarea,
+.task-card select {
+  cursor: pointer;
+}
+
+.column-card button,
+.column-card a,
+.column-card input,
+.column-card textarea,
+.column-card select {
+  cursor: auto;
+}
+
+.column-card .task-card {
+  cursor: grab;
+}
+
+.gu-mirror {
+  cursor: grabbing;
+  opacity: 0.95;
+  rotate: 1deg;
+  box-shadow: 0 18px 40px rgb(15 23 42 / 0.18);
+}
+
+.gu-transit {
+  opacity: 0.45;
+}

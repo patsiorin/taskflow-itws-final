@@ -45,7 +45,6 @@ export function BoardPage({ boardId, navigate }: BoardPageProps) {
   const [taskPriority, setTaskPriority] = useState<TaskPriority>('MEDIUM');
   const [isLoadingBoard, setIsLoadingBoard] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [savingTaskId, setSavingTaskId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const columns = useMemo(() => activeBoard?.columns ?? [], [activeBoard]);
@@ -72,7 +71,7 @@ export function BoardPage({ boardId, navigate }: BoardPageProps) {
   function resetColumnForm() {
     setEditingColumn(null);
     setColumnName('');
-    setColumnPosition(columns.length);
+    setColumnPosition(columns.length + 1);
   }
 
   function resetTaskForm() {
@@ -186,18 +185,31 @@ export function BoardPage({ boardId, navigate }: BoardPageProps) {
     }
   }
 
-  async function handleMoveTask(task: Task, columnId: number) {
+  async function handleMoveTask(task: Task, columnId: number, position: number) {
     try {
       setError(null);
-      setSavingTaskId(task.id);
-      await TaskService.updateTask(task.id, { columnId });
+      await TaskService.updateTask(task.id, { columnId, position });
       toast.success('Task moved.');
       await loadBoard();
     } catch {
       setError('Unable to move task.');
       toast.error('Unable to move task.');
-    } finally {
-      setSavingTaskId(null);
+    }
+  }
+
+  async function handleReorderColumns(nextColumns: BoardColumn[]) {
+    setActiveBoard((board) => (board ? { ...board, columns: nextColumns } : board));
+
+    try {
+      setError(null);
+      await Promise.all(
+        nextColumns.map((column) => ColumnService.updateColumn(column.id, { position: column.position })),
+      );
+      toast.success('Column order saved.');
+    } catch {
+      setError('Unable to save column order.');
+      toast.error('Unable to save column order.');
+      await loadBoard();
     }
   }
 
@@ -276,12 +288,12 @@ export function BoardPage({ boardId, navigate }: BoardPageProps) {
               <KanbanBoard
                 columns={columns}
                 isLoading={isLoadingBoard}
-                savingTaskId={savingTaskId}
                 onDeleteColumn={(column) => setDeleteTarget({ kind: 'column', item: column })}
                 onDeleteTask={(task) => setDeleteTarget({ kind: 'task', item: task })}
                 onEditColumn={startEditColumn}
                 onEditTask={startEditTask}
                 onMoveTask={handleMoveTask}
+                onReorderColumns={handleReorderColumns}
               />
             )}
           </CardContent>

@@ -18,6 +18,7 @@ export type Board = {
   name: string;
   description: string | null;
   color: string;
+  position: number;
   createdAt: string;
   updatedAt: string;
   columns?: BoardColumn[];
@@ -32,6 +33,7 @@ export type CreateBoardInput = {
   name: string;
   description?: string;
   color?: string;
+  position?: number;
 };
 
 export type UpdateBoardInput = Partial<CreateBoardInput>;
