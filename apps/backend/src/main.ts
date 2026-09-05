@@ -1,6 +1,10 @@
+import { join } from 'path';
+import { config } from 'dotenv';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+
+config({ path: join(__dirname, '..', '.env'), override: true, quiet: true });
 
 async function bootstrap() {
   // NestFactory creates the HTTP application from the root module graph.

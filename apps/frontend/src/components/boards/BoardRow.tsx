@@ -1,6 +1,7 @@
+import type { KeyboardEvent, MouseEvent } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowRight, GripVertical, Pencil, Trash2 } from 'lucide-react';
+import { GripVertical, Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
@@ -24,8 +25,38 @@ export function BoardRow({ board, onDelete, onEdit, onOpen }: BoardRowProps) {
     opacity: isDragging ? 0.55 : undefined,
   };
 
+  function handleRowClick(event: MouseEvent<HTMLTableRowElement>) {
+    const target = event.target as HTMLElement;
+
+    if (target.closest('button, a, input, textarea, select')) {
+      return;
+    }
+
+    onOpen(board);
+  }
+
+  function handleRowKeyDown(event: KeyboardEvent<HTMLTableRowElement>) {
+    const target = event.target as HTMLElement;
+
+    if (target.closest('button, a, input, textarea, select')) {
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      onOpen(board);
+    }
+  }
+
   return (
-    <TableRow ref={setNodeRef} data-board-id={board.id} className="board-row" style={style}>
+    <TableRow
+      ref={setNodeRef}
+      data-board-id={board.id}
+      className="board-row cursor-pointer hover:bg-muted/50"
+      style={style}
+      tabIndex={0}
+      onClick={handleRowClick}
+      onKeyDown={handleRowKeyDown}
+    >
       <TableCell>
         <button
           type="button"
@@ -63,11 +94,6 @@ export function BoardRow({ board, onDelete, onEdit, onOpen }: BoardRowProps) {
           <Tooltip content="Delete board">
             <Button size="icon" variant="outline" onClick={() => onDelete(board)}>
               <Trash2 className="h-4 w-4" />
-            </Button>
-          </Tooltip>
-          <Tooltip content="Open board">
-            <Button size="icon" onClick={() => onOpen(board)}>
-              <ArrowRight className="h-4 w-4" />
             </Button>
           </Tooltip>
         </div>

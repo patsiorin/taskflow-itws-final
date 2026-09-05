@@ -83,6 +83,12 @@ export function BoardPage({ boardId, navigate }: BoardPageProps) {
     setIsTaskDialogOpen(true);
   }
 
+  function openCreateTaskInColumn(column: BoardColumn) {
+    resetTaskForm();
+    setTaskColumnId(column.id);
+    setIsTaskDialogOpen(true);
+  }
+
   function startEditColumn(column: BoardColumn) {
     setEditingColumn(column);
     setColumnName(column.name);
@@ -317,6 +323,7 @@ export function BoardPage({ boardId, navigate }: BoardPageProps) {
                 onDeleteTask={(task) => setDeleteTarget({ kind: 'task', item: task })}
                 onEditColumn={startEditColumn}
                 onEditTask={startEditTask}
+                onCreateTask={openCreateTaskInColumn}
                 onReorderColumns={handleReorderColumns}
                 onReorderTasks={handleReorderTasks}
               />

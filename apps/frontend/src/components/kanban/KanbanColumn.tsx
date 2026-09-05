@@ -2,7 +2,7 @@ import { forwardRef } from "react";
 import type { HTMLAttributes } from "react";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -19,6 +19,7 @@ type KanbanColumnProps = {
   onDeleteTask: (task: Task) => void;
   onEditColumn: (column: BoardColumn) => void;
   onEditTask: (task: Task) => void;
+  onCreateTask: (column: BoardColumn) => void;
 };
 
 type KanbanColumnContentProps = KanbanColumnProps &
@@ -34,6 +35,7 @@ export function KanbanColumn({
   onDeleteTask,
   onEditColumn,
   onEditTask,
+  onCreateTask,
 }: KanbanColumnProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `column-${column.id}`,
@@ -54,6 +56,7 @@ export function KanbanColumn({
       onDeleteTask={onDeleteTask}
       onEditColumn={onEditColumn}
       onEditTask={onEditTask}
+      onCreateTask={onCreateTask}
       data-column-card-id={column.id}
       dragHandleProps={{ ...attributes, ...listeners }}
       style={style}
@@ -71,6 +74,7 @@ export const KanbanColumnContent = forwardRef<HTMLDivElement, KanbanColumnConten
       onDeleteTask,
       onEditColumn,
       onEditTask,
+      onCreateTask,
       className,
       dragHandleProps,
       renderSortableTasks = true,
@@ -98,6 +102,11 @@ export const KanbanColumnContent = forwardRef<HTMLDivElement, KanbanColumnConten
             <Badge>{columnTasks.length}</Badge>
           </div>
           <div className="flex gap-1" onPointerDown={(event) => event.stopPropagation()}>
+            <Tooltip content="New task">
+              <Button size="icon" variant="ghost" onClick={() => onCreateTask(column)}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </Tooltip>
             <Tooltip content="Edit column">
               <Button size="icon" variant="ghost" onClick={() => onEditColumn(column)}>
                 <Pencil className="h-4 w-4" />

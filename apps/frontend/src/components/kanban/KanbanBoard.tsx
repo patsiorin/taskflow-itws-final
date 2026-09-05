@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { CSSProperties } from "react";
 import { DndContext, DragOverlay, PointerSensor, closestCorners, useSensor, useSensors } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from "@dnd-kit/sortable";
@@ -15,8 +16,13 @@ type KanbanBoardProps = {
   onDeleteTask: (task: Task) => void;
   onEditColumn: (column: BoardColumn) => void;
   onEditTask: (task: Task) => void;
+  onCreateTask: (column: BoardColumn) => void;
   onReorderColumns: (columns: ReorderColumnInput[]) => void;
   onReorderTasks: (tasks: ReorderTaskInput[]) => void;
+};
+
+type DragSize = {
+  width: number;
 };
 
 export function KanbanBoard({
@@ -26,23 +32,27 @@ export function KanbanBoard({
   onDeleteTask,
   onEditColumn,
   onEditTask,
+  onCreateTask,
   onReorderColumns,
   onReorderTasks,
 }: KanbanBoardProps) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeColumn, setActiveColumn] = useState<BoardColumn | null>(null);
+  const [activeDragSize, setActiveDragSize] = useState<DragSize | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   function handleDragStart(event: DragStartEvent) {
     const task = event.active.data.current?.task as Task | undefined;
     const column = event.active.data.current?.column as BoardColumn | undefined;
+    const rect = event.active.rect.current.initial;
+
     setActiveTask(task ?? null);
     setActiveColumn(column ?? null);
+    setActiveDragSize(rect ? { width: rect.width } : null);
   }
 
   function handleDragEnd(event: DragEndEvent) {
-    setActiveTask(null);
-    setActiveColumn(null);
+    clearActiveDrag();
 
     const activeId = String(event.active.id);
     const overId = event.over ? String(event.over.id) : "";
@@ -151,10 +161,7 @@ export function KanbanBoard({
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
-      onDragCancel={() => {
-        setActiveTask(null);
-        setActiveColumn(null);
-      }}
+      onDragCancel={clearActiveDrag}
       onDragEnd={handleDragEnd}
     >
       <div className="overflow-x-auto overflow-y-hidden pb-3">
@@ -169,6 +176,7 @@ export function KanbanBoard({
                 onDeleteTask={onDeleteTask}
                 onEditColumn={onEditColumn}
                 onEditTask={onEditTask}
+                onCreateTask={onCreateTask}
               />
             ))}
             {!isLoading && columns.length === 0 ? (
@@ -179,7 +187,7 @@ export function KanbanBoard({
           </section>
         </SortableContext>
       </div>
-      <DragOverlay>
+      <DragOverlay dropAnimation={null}>
         {activeColumn ? (
           <KanbanColumnContent
             column={activeColumn}
@@ -188,20 +196,29 @@ export function KanbanBoard({
             onDeleteTask={onDeleteTask}
             onEditColumn={onEditColumn}
             onEditTask={onEditTask}
+            onCreateTask={onCreateTask}
             renderSortableTasks={false}
-            className="w-[19rem] cursor-grabbing shadow-lg"
+            className="cursor-grabbing shadow-lg"
+            style={getOverlayStyle(activeDragSize)}
           />
         ) : activeTask ? (
           <TaskCardContent
             task={activeTask}
             onDelete={onDeleteTask}
             onEdit={onEditTask}
-            className="w-[20rem] cursor-grabbing shadow-lg"
+            className="cursor-grabbing shadow-lg"
+            style={getOverlayStyle(activeDragSize)}
           />
         ) : null}
       </DragOverlay>
     </DndContext>
   );
+
+  function clearActiveDrag() {
+    setActiveTask(null);
+    setActiveColumn(null);
+    setActiveDragSize(null);
+  }
 }
 
 function findTaskColumn(columns: BoardColumn[], taskId: number) {
@@ -214,6 +231,10 @@ function getItemId(type: "column" | "task", id: number) {
 
 function getNumericId(id: string) {
   return Number(id.split("-")[1]);
+}
+
+function getOverlayStyle(size: DragSize | null): CSSProperties | undefined {
+  return size ? { width: size.width } : undefined;
 }
 
 function toTaskOrder(columns: BoardColumn[]): ReorderTaskInput[] {
