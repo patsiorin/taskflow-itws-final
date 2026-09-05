@@ -165,12 +165,47 @@ The backend uses the `/api` global prefix.
 
 The project uses PostgreSQL. The local development database name is `ws`.
 
+The shipped dump is `database/dump.sql`. It creates the schema, relations, indexes, and
+sample rows inside an existing PostgreSQL database. Create the empty `ws` database first,
+then apply the dump.
+
+macOS/Linux example:
+
 ```bash
 createdb -U postgres ws
 psql -U postgres -d ws -f database/dump.sql
 ```
 
+Windows PowerShell example, using a PostgreSQL user named `root` with password `1234`:
+
+```powershell
+createdb -U root -h localhost -p 5432 ws
+```
+
+If PostgreSQL command-line tools are not on `PATH`, use the full path and adjust the
+PostgreSQL version if needed:
+
+```powershell
+& "C:\Program Files\PostgreSQL\16\bin\createdb.exe" -U root -h localhost -p 5432 ws
+```
+
+The dump can be applied through npm:
+
+```powershell
+npm run db:apply
+```
+
+Or manually with `psql`:
+
+```powershell
+psql -U root -h localhost -p 5432 -d ws -f database\dump.sql
+```
+
 ## Run Locally
+
+Create the backend environment file and set the PostgreSQL connection string.
+
+macOS/Linux:
 
 ```bash
 npm install
@@ -180,10 +215,35 @@ npm run prisma:generate
 npm run dev
 ```
 
+Windows PowerShell:
+
+```powershell
+npm install
+copy apps\backend\.env.example apps\backend\.env
+notepad apps\backend\.env
+```
+
+For a local PostgreSQL user `root` with password `1234`, use:
+
+```env
+DATABASE_URL="postgresql://root:1234@localhost:5432/ws"
+PORT=3000
+```
+
+Then run:
+
+```powershell
+npm run db:apply
+npm run prisma:generate
+npm run build
+npm run dev
+```
+
 Default URLs:
 
 - Frontend: `http://127.0.0.1:5173`
 - Backend: `http://127.0.0.1:3000/api`
+- Backend sample endpoint: `http://127.0.0.1:3000/api/boards`
 
 ## Submission Checklist
 
