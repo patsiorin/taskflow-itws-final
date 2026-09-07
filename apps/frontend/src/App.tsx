@@ -1,51 +1,64 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AppHeader } from '@/components/AppHeader';
 import { Toaster } from '@/components/ui/sonner';
 import { BoardPage } from '@/pages/BoardPage';
 import { BoardsPage } from '@/pages/BoardsPage';
 
 function App() {
-  const [path, setPath] = useState(window.location.pathname);
   const [isDarkMode, setIsDarkMode] = useState(() => window.localStorage.getItem('taskflow-theme') === 'dark');
-
-  useEffect(() => {
-    function handlePopState() {
-      setPath(window.location.pathname);
-    }
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDarkMode);
     window.localStorage.setItem('taskflow-theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
 
-  const boardId = useMemo(() => {
-    const match = path.match(/^\/boards\/(\d+)$/);
-    return match ? Number(match[1]) : null;
-  }, [path]);
+  return (
+    <BrowserRouter>
+      <AppShell isDarkMode={isDarkMode} onToggleTheme={() => setIsDarkMode((current) => !current)} />
+    </BrowserRouter>
+  );
+}
+
+type AppShellProps = {
+  isDarkMode: boolean;
+  onToggleTheme: () => void;
+};
+
+function AppShell({ isDarkMode, onToggleTheme }: AppShellProps) {
+  const location = useLocation();
+  const routerNavigate = useNavigate();
 
   function navigate(to: string) {
-    window.history.pushState(null, '', to);
-    setPath(to);
+    routerNavigate(to);
   }
-
-  const page = boardId ? <BoardPage boardId={boardId} navigate={navigate} /> : <BoardsPage navigate={navigate} />;
 
   return (
     <>
-      <AppHeader
-        isDarkMode={isDarkMode}
-        path={path}
-        navigate={navigate}
-        onToggleTheme={() => setIsDarkMode((current) => !current)}
-      />
-      {page}
+      <AppHeader isDarkMode={isDarkMode} path={location.pathname} navigate={navigate} onToggleTheme={onToggleTheme} />
+      <Routes>
+        <Route path="/" element={<BoardsPage navigate={navigate} />} />
+        <Route path="/boards/:boardId" element={<BoardRoute navigate={navigate} />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
       <Toaster />
     </>
   );
+}
+
+type BoardRouteProps = {
+  navigate: (to: string) => void;
+};
+
+function BoardRoute({ navigate }: BoardRouteProps) {
+  const { boardId } = useParams();
+  const numericBoardId = Number(boardId);
+
+  if (!Number.isInteger(numericBoardId) || numericBoardId <= 0) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <BoardPage boardId={numericBoardId} navigate={navigate} />;
 }
 
 export default App;
